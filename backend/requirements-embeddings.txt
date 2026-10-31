@@ -1,0 +1,3 @@
+# Optional: multilingual sentence embeddings for better clustering (~500 MB with torch CPU).
+# Without it the system uses character n-gram TF-IDF, which needs no download.
+sentence-transformers>=3.0

@@ -1,0 +1,7 @@
+backend/.venv
+backend/static
+backend/data
+frontend/node_modules
+**/__pycache__
+.env
+*.session
