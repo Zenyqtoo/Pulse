@@ -5,14 +5,19 @@
     "platform": "telegram",
     "name": "Типичный Павлодар (@tipavlo)",
     "url": "https://t.me/tipavlo",
-    "config": {"channels": ["tipavlo"], "pages": 3},
+    "config": {
+      "channels": [
+        "tipavlo"
+      ],
+      "pages": 3
+    },
     "geo_scope": "city",
     "content": "Городской паблик: происшествия, жалобы и видео от жителей",
     "description": "Крупнейший найденный канал о жизни Павлодара. В описании: материалы о городе, которые «не пропустят в других соцсетях».",
     "relevance": "Наибольшая аудитория среди найденных городских каналов; жители присылают сюжеты о проблемах города.",
-    "verified": "Существование и 36 031 подписчик проверены на t.me/tipavlo 30.10.2026. Посты через веб-просмотр не просматривались.",
+    "verified": "Существование и 36 031 подписчик проверены на t.me/tipavlo 30.10.2026. Посты через веб-просмотр не просматривались. 01.11.2026: веб-просмотр t.me/s/tipavlo закрыт (страница без постов) — посты без Telethon не собрать.",
     "access": "Публичный канал. Посты — через t.me/s (если веб-просмотр включён); комментарии — через Telethon, если у канала есть обсуждение.",
-    "collection": "check_on_first_run"
+    "collection": "needs_credentials"
   },
   {
     "key": "tg-tipavlo-comments",
@@ -20,7 +25,15 @@
     "platform": "telegram",
     "name": "Типичный Павлодар — комментарии (Telethon)",
     "url": "https://t.me/tipavlo",
-    "config": {"channels": ["tipavlo"], "chats": [], "days": 7, "posts_per_channel": 40, "include_posts": false},
+    "config": {
+      "channels": [
+        "tipavlo"
+      ],
+      "chats": [],
+      "days": 7,
+      "posts_per_channel": 40,
+      "include_posts": false
+    },
     "geo_scope": "city",
     "content": "Комментарии жителей под постами канала",
     "description": "Комментарии под постами @tipavlo — основное место, где жители обсуждают проблемы.",
@@ -35,12 +48,17 @@
     "platform": "telegram",
     "name": "Павлодар онлайн (@pavlodaronline)",
     "url": "https://t.me/pavlodaronline",
-    "config": {"channels": ["pavlodaronline"], "pages": 3},
+    "config": {
+      "channels": [
+        "pavlodaronline"
+      ],
+      "pages": 3
+    },
     "geo_scope": "region",
     "content": "Новости города и области (pavon.kz): отопление, вода, ЖКХ, происшествия",
     "description": "Новостной канал «Новости Павлодара», около 1,3 тыс. подписчиков. Публикует и областные новости (Экибастуз, Аксу, Баянаул), поэтому геофильтр обязателен.",
     "relevance": "Регулярно сообщает о проблемах города: старт отопительного сезона, отключения воды, мусор.",
-    "verified": "Веб-просмотр t.me/s/pavlodaronline открыт и содержит посты о Павлодаре (проверено 30.10.2026).",
+    "verified": "Веб-просмотр t.me/s/pavlodaronline открыт и содержит посты о Павлодаре (проверено 30.10.2026). 01.11.2026: веб-просмотр открыт, 20 последних постов с датами до 31.10.2026.",
     "access": "Публичный канал с веб-просмотром. Комментарии в веб-просмотре не отображаются.",
     "collection": "accessible"
   },
@@ -50,12 +68,17 @@
     "platform": "telegram",
     "name": "АО «Павлодарэнерго» (@pavlodarenergo)",
     "url": "https://t.me/pavlodarenergo",
-    "config": {"channels": ["pavlodarenergo"], "pages": 2},
+    "config": {
+      "channels": [
+        "pavlodarenergo"
+      ],
+      "pages": 2
+    },
     "geo_scope": "region",
     "content": "Официальные сообщения: отопление, горячая вода, отключения электричества, ремонты сетей",
     "description": "Официальный канал энергокомпании (ТЭЦ-2, ТЭЦ-3, тепловые сети, ПРЭК), около 900 подписчиков.",
     "relevance": "Официальная сторона по теплу и электричеству: помогает сопоставлять жалобы жителей с плановыми отключениями.",
-    "verified": "Веб-просмотр открыт, посты о гидравлических испытаниях и подключении домов к ГВС в Павлодаре (проверено 30.10.2026).",
+    "verified": "Веб-просмотр открыт, посты о гидравлических испытаниях и подключении домов к ГВС в Павлодаре (проверено 30.10.2026). 01.11.2026: веб-просмотр открыт, последний пост 14.10.2026.",
     "access": "Публичный канал с веб-просмотром.",
     "collection": "accessible"
   },
@@ -65,14 +88,39 @@
     "platform": "telegram",
     "name": "Press Pavlodar region (@baspasozpvl)",
     "url": "https://t.me/baspasozpvl",
-    "config": {"channels": ["baspasozpvl"], "pages": 2},
+    "config": {
+      "channels": [
+        "baspasozpvl"
+      ],
+      "pages": 2
+    },
     "geo_scope": "region",
     "content": "Пресс-служба акимата Павлодарской области: приёмы граждан, официальные заявления",
     "description": "Официальный канал областного акимата на казахском и русском, около 1 тыс. подписчиков. Больше областной повестки, чем городской.",
     "relevance": "Официальные ответы и приёмы граждан; низкий приоритет для городских жалоб.",
-    "verified": "Канал и веб-просмотр существуют (проверено 30.10.2026); в просмотренной части — старые посты, текущая активность не подтверждена.",
+    "verified": "Канал и веб-просмотр существуют (проверено 30.10.2026); в просмотренной части — старые посты, текущая активность не подтверждена. 01.11.2026: в веб-просмотре только файлы-документы без текста — сборщику нечего брать.",
     "access": "Публичный канал с веб-просмотром.",
-    "collection": "check_on_first_run"
+    "collection": "no_text"
+  },
+  {
+    "key": "tg-pavlodar-pavlodarets",
+    "type": "telegram_web",
+    "platform": "telegram",
+    "name": "Павлодарец (@pavlodar)",
+    "url": "https://t.me/pavlodar",
+    "config": {
+      "channels": [
+        "pavlodar"
+      ],
+      "pages": 3
+    },
+    "geo_scope": "region",
+    "content": "Новостной канал: городские новости и республиканские материалы",
+    "description": "Публичный новостной канал «Павлодарец» с короткими новостями и «подробностями».",
+    "relevance": "Регулярные новости о городе; часть материалов — общереспубликанские, их отсеивает геофильтр.",
+    "verified": "01.11.2026: веб-просмотр t.me/s/pavlodar открыт, 20 постов, последний — 31.10.2026.",
+    "access": "Публичный канал с веб-просмотром. Это публикации редакции, а не сообщения жителей.",
+    "collection": "accessible"
   },
   {
     "key": "tg-chat-pvl14",
@@ -80,7 +128,13 @@
     "platform": "telegram",
     "name": "Pavlodar Chat (@pvl_chat_14)",
     "url": "https://t.me/pvl_chat_14",
-    "config": {"channels": [], "chats": ["pvl_chat_14"], "days": 7},
+    "config": {
+      "channels": [],
+      "chats": [
+        "pvl_chat_14"
+      ],
+      "days": 7
+    },
     "geo_scope": "city",
     "content": "Общий городской чат",
     "description": "Публичный чат жителей Павлодара из каталога telegid.me.",
@@ -95,7 +149,13 @@
     "platform": "telegram",
     "name": "Chat.Pavlodar | Павлодар (@chat_pavlodara)",
     "url": "https://t.me/chat_pavlodara",
-    "config": {"channels": [], "chats": ["chat_pavlodara"], "days": 7},
+    "config": {
+      "channels": [],
+      "chats": [
+        "chat_pavlodara"
+      ],
+      "days": 7
+    },
     "geo_scope": "city",
     "content": "Общий городской чат",
     "description": "Публичный чат о Павлодаре из каталога telegid.me (без описания).",
@@ -110,7 +170,13 @@
     "platform": "telegram",
     "name": "Павлодар (@pavlo_rf)",
     "url": "https://t.me/pavlo_rf",
-    "config": {"channels": [], "chats": ["pavlo_rf"], "days": 7},
+    "config": {
+      "channels": [],
+      "chats": [
+        "pavlo_rf"
+      ],
+      "days": 7
+    },
     "geo_scope": "city",
     "content": "Сообщество переехавших и местных жителей: жильё, работа, бытовые вопросы",
     "description": "Чат для переехавших в Павлодар из России и местных жителей (по описанию в каталоге).",
@@ -120,12 +186,67 @@
     "collection": "unverified"
   },
   {
+    "key": "rss-kazinform-pavlodar",
+    "type": "news",
+    "platform": "news",
+    "name": "Kazinform — материалы о Павлодаре (RSS)",
+    "url": "https://www.inform.kz/rss/rus.xml",
+    "config": {
+      "feeds": [
+        "https://www.inform.kz/rss/rus.xml"
+      ],
+      "keywords": [
+        "павлодар"
+      ],
+      "max_articles": 30
+    },
+    "geo_scope": "national",
+    "content": "Государственное информагентство: только статьи со словом «Павлодар»",
+    "description": "Общереспубликанская лента Kazinform, отфильтрованная по слову «Павлодар».",
+    "relevance": "Редкие, но заметные новости о городе в республиканских СМИ.",
+    "verified": "01.11.2026: лента отвечает 200, 200 записей, упоминаний Павлодара — единицы.",
+    "access": "Открытый RSS.",
+    "collection": "accessible"
+  },
+  {
+    "key": "rss-pavlodarnews",
+    "type": "news",
+    "platform": "news",
+    "name": "«Звезда Прииртышья» — pavlodarnews.kz (RSS)",
+    "url": "https://pavlodarnews.kz/ru/rss-feeds",
+    "config": {
+      "feeds": [
+        "https://pavlodarnews.kz/ru/rss/category/obshchestvo",
+        "https://pavlodarnews.kz/ru/rss/category/proisshestviya",
+        "https://pavlodarnews.kz/ru/rss/category/infrastruktura",
+        "https://pavlodarnews.kz/ru/rss/category/pavlodar-official",
+        "https://pavlodarnews.kz/ru/rss/category/ekologiya"
+      ],
+      "max_articles": 40
+    },
+    "geo_scope": "region",
+    "content": "Областная газета: общество, происшествия, инфраструктура, официальные сообщения, экология",
+    "description": "Русскоязычные RSS-рубрики областной газеты «Звезда Прииртышья». В каждой ленте до 500 последних статей.",
+    "relevance": "Отключения, ремонты, ЖКХ и происшествия в Павлодаре; официальные объявления городских служб.",
+    "verified": "01.11.2026: пять лент отвечают 200, корректный RSS 2.0, последние статьи 30–31.10.2026. robots.txt не запрещает /ru/rss.",
+    "access": "Открытый RSS. Берутся заголовок и анонс; это материалы СМИ, а не обращения жителей.",
+    "collection": "accessible"
+  },
+  {
     "key": "ig-pavlodar-akimdigi",
     "type": "instagram",
     "platform": "instagram",
     "name": "Акимат города Павлодара (@pavlodar_akimdigi)",
     "url": "https://www.instagram.com/pavlodar_akimdigi/",
-    "config": {"own_media": false, "business_accounts": ["pavlodar_akimdigi"], "hashtags": [], "direct": false, "days": 14},
+    "config": {
+      "own_media": false,
+      "business_accounts": [
+        "pavlodar_akimdigi"
+      ],
+      "hashtags": [],
+      "direct": false,
+      "days": 14
+    },
     "geo_scope": "city",
     "content": "Официальные посты городского акимата; под ними жители оставляют вопросы и жалобы",
     "description": "Официальный Instagram городского акимата (ссылка с gov.kz/memleket/entities/pavlodar-pvl).",
@@ -140,7 +261,17 @@
     "platform": "threads",
     "name": "Threads: поиск «Павлодар»",
     "url": "https://www.threads.com/search?q=%D0%9F%D0%B0%D0%B2%D0%BB%D0%BE%D0%B4%D0%B0%D1%80",
-    "config": {"keywords": ["Павлодар", "Pavlodar", "Павлодарда", "павлодарцы"], "own_posts": false, "fetch_replies": true, "days": 7},
+    "config": {
+      "keywords": [
+        "Павлодар",
+        "Pavlodar",
+        "Павлодарда",
+        "павлодарцы"
+      ],
+      "own_posts": false,
+      "fetch_replies": true,
+      "days": 7
+    },
     "geo_scope": "national",
     "content": "Публичные посты Threads с упоминанием города",
     "description": "Поиск по ключевым словам через официальный API Threads. Проверенных городских аккаунтов в Threads не найдено.",
@@ -148,5 +279,60 @@
     "verified": "Метод keyword_search задокументирован Meta; конкретные аккаунты не проверялись.",
     "access": "Нужен токен Threads. До одобрения threads_keyword_search поиск охватывает только посты подключённого аккаунта.",
     "collection": "needs_permission"
+  },
+  {
+    "key": "web-pavon-comments",
+    "type": "pavon_comments",
+    "platform": "news",
+    "name": "pavon.kz — комментарии читателей",
+    "url": "https://pavon.kz",
+    "config": {
+      "max_articles": 60,
+      "days": 180,
+      "posts": []
+    },
+    "geo_scope": "region",
+    "content": "Публичные комментарии читателей под статьями «Павлодар онлайн»",
+    "description": "Комментарии жителей под новостями pavon.kz. Читаются без входа; дата и ссылка на статью берутся со страницы.",
+    "relevance": "Голоса читателей, а не редакции. Объём небольшой: около 25 комментариев за полгода.",
+    "verified": "01.11.2026: комментарии видны без авторизации, robots.txt разрешает /post/view; на сайте найдено 25 комментариев (май–октябрь 2026) под 23 статьями. Комментариев на pavlodarnews.kz в выборке из 30 статей нет.",
+    "access": "Открытый доступ, вход не нужен.",
+    "collection": "accessible"
+  },
+  {
+    "key": "web:gorodpavlodar.kz",
+    "type": "city_web",
+    "platform": "news",
+    "name": "Город Павлодар — статьи",
+    "url": "https://gorodpavlodar.kz",
+    "config": {
+      "host": "gorodpavlodar.kz",
+      "max_articles": 8
+    },
+    "geo_scope": "city",
+    "content": "Публикации СМИ с датой и ссылкой; не личные обращения",
+    "description": "Публичные HTML-статьи: заголовок и короткий фрагмент. Возраст данных сохраняется.",
+    "relevance": "Дополнительные сведения о городских темах для проверки сотрудником.",
+    "verified": "02.11.2026: собраны три статьи 29–31 октября 2026 года. Встречаются перепечатки Pavlodarnews; независимость не предполагается.",
+    "access": "Без входа, с проверкой robots.txt и задержкой между запросами.",
+    "collection": "accessible"
+  },
+  {
+    "key": "web:obozrenie.kz",
+    "type": "city_web",
+    "platform": "news",
+    "name": "Обозрение — статьи и архив",
+    "url": "https://obozrenie.kz",
+    "config": {
+      "host": "obozrenie.kz",
+      "max_articles": 8
+    },
+    "geo_scope": "region",
+    "content": "Публикации СМИ с датой и ссылкой; не личные обращения",
+    "description": "Публичные HTML-статьи: заголовок и короткий фрагмент. Возраст данных сохраняется.",
+    "relevance": "Дополнительные сведения о городских темах для проверки сотрудником.",
+    "verified": "02.11.2026: собраны две архивные статьи октября–ноября 2025 года. Найденные ссылки RSS и SMS не работают; используется HTML.",
+    "access": "Без входа, с проверкой robots.txt и задержкой между запросами.",
+    "collection": "accessible"
   }
 ]

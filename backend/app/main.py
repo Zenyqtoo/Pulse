@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -8,13 +9,19 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import scheduler
-from app.api import admin, assistant, clusters, connect, exports, items, quality, sources, stats
+from app.api import admin, assistant, clusters, connect, defense, exports, items, quality, sources, stats
 from app.config import get_settings
 from app.db import SessionLocal
 from app.seed import seed
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 STATIC = Path(__file__).resolve().parent.parent / "static"
+
+# Windows registry associations can label JS as text/plain, which browsers reject
+# for module scripts. Register web MIME types after loading the platform defaults.
+mimetypes.init()
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("text/javascript", ".mjs")
 
 
 @asynccontextmanager
@@ -34,7 +41,7 @@ async def lifespan(app: FastAPI):
     scheduler.stop()
 
 
-app = FastAPI(title="Пульс города API", version="1.0", lifespan=lifespan)
+app = FastAPI(title="City Alert API", version="1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in get_settings().cors_origins.split(",")],
                    allow_methods=["*"], allow_headers=["*"])
 
@@ -55,7 +62,7 @@ async def unhandled(request: Request, exc: Exception):
 
 
 for r in (admin.router, connect.router, items.router, clusters.router, stats.router, sources.router, quality.router,
-          exports.router, assistant.router):
+          exports.router, assistant.router, defense.router):
     app.include_router(r)
 
 

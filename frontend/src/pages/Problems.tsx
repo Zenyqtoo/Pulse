@@ -22,7 +22,7 @@ export default function Problems() {
   const [multi, setMulti] = useState(false)
   const [page, setPage] = useState(1)
   const params = { department: filters.department, priority: filters.priority, status: filters.status, district: filters.district,
-    q: filters.q, hot: hot || undefined, platform: filters.platform, multi: multi || undefined, sort, page, page_size: 20 }
+    q: filters.q, origin: filters.origin, hot: hot || undefined, platform: filters.platform, multi: multi || undefined, sort, page, page_size: 20 }
   const { data, isLoading, error } = useQuery({ queryKey: ['clusters', params], queryFn: () => api.get<Paged<Cluster>>('/api/clusters', params) })
   const open = (id: number) => setSp((p) => { const n = new URLSearchParams(p); n.set('problem', String(id)); return n })
   const setStatus = useMutation({
@@ -66,7 +66,7 @@ export default function Problems() {
             { title: 'Приоритет', dataIndex: 'priority', width: 120, render: (_, r) => <PriorityTag value={r.priority} score={r.priority_score} /> },
             { title: 'Проблема', dataIndex: 'title', render: (_, r) => (
               <div>
-                <div style={{ fontWeight: 700 }}>{r.title}</div>
+                <div style={{ fontWeight: 700 }}>{r.title}{r.synthetic && <Tag className="origin-tag" style={{ marginLeft: 8 }}>Учебные данные</Tag>}</div>
                 <div className="muted msg-clamp" style={{ fontSize: 13 }}>{r.summary}</div>
                 <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {r.platforms.filter((p) => !['demo', 'upload'].includes(p)).map((p) => <PlatformTag key={p} value={p} />)}

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 
 // The global filter lives in the URL, so every drill-down view is a shareable link (spec 3.8.1, 3.8.4).
 export const FILTER_KEYS = ['days', 'date_from', 'date_to', 'source', 'department', 'sentiment', 'priority',
-  'status', 'type', 'district', 'lang', 'q', 'urgent', 'is_direct', 'needs_review', 'origin', 'cluster_id', 'platform'] as const
+  'status', 'type', 'district', 'lang', 'q', 'urgent', 'is_direct', 'needs_review', 'origin', 'cluster_id', 'platform', 'voice'] as const
 export type FilterKey = (typeof FILTER_KEYS)[number]
 export type FilterState = Partial<Record<FilterKey, string>>
 

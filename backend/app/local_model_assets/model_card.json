@@ -1,0 +1,66 @@
+{
+  "version": "cityalert-e5-routed-v4",
+  "created_at": "2026-11-01T22:23:58.783587+00:00",
+  "encoder": "intfloat/multilingual-e5-small",
+  "encoder_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+  "encoder_weights_updated": false,
+  "adaptation": "frozen e5 + trained lexical/semantic expert heads; observable genre routing",
+  "training_origins": {
+    "real_rules_v1": 260,
+    "ai_authored_synthetic": 1320
+  },
+  "training_sha256": "17b1b19d1b60da9144ae70905a2848bc62564245d0c58fc49d26f6fa5e0e1291",
+  "weak_real_weight": 0.5,
+  "synthetic_weight": 1.0,
+  "weak_media_labels_adjusted": true,
+  "label_counts": {
+    "department": {
+      "safety": 154,
+      "other": 230,
+      "education": 127,
+      "housing": 160,
+      "health": 125,
+      "ecology": 136,
+      "improvement": 129,
+      "culture": 129,
+      "roads": 139,
+      "social": 126,
+      "business": 125
+    },
+    "sentiment": {
+      "neutral": 879,
+      "negative": 365,
+      "positive": 336
+    },
+    "message_type": {
+      "info": 552,
+      "complaint": 364,
+      "question": 168,
+      "gratitude": 331,
+      "proposal": 165
+    },
+    "geo": {
+      "possible": 317,
+      "local": 604,
+      "not_local": 659
+    }
+  },
+  "real_held_out": {
+    "train": 260,
+    "dev": 64,
+    "test": 67
+  },
+  "independent_human_accuracy": null,
+  "limitations": [
+    "AI-authored templates are not real resident comments or independent gold labels.",
+    "Old 28 diagnostic examples informed development; report them as regressions only.",
+    "Uncalibrated scores; human real-data validation still required.",
+    "Do not automatically enable or replace the deployed analyser from this script."
+  ],
+  "experts": [
+    "cityalert-e5-curriculum-v2",
+    "cityalert-e5-genre-v3"
+  ],
+  "routing": "department=general; geo=contextual; tone/type=contextual for known post/article else general",
+  "development_note": "Old diagnostics and AI-reviewed dev were used for design selection. Not an independent final test."
+}

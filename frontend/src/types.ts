@@ -20,6 +20,7 @@ export interface Item {
   similarity?: number
   platform: string; kind: string; parent_url: string | null
   geo_status: 'local' | 'possible' | 'not_local'; geo_reason: string | null; geo_reviewed: boolean
+  voice: 'resident' | 'media'
 }
 
 export interface ItemDetail extends Item {
@@ -38,7 +39,7 @@ export interface Cluster {
   neg_share: number; reach: number; has_urgent: boolean; priority: 'high' | 'medium' | 'low'; priority_score: number
   priority_factors: { terms: Record<string, PriorityTerm>; score: number; thresholds: { high: number; medium: number }; forced_by_life_threat: boolean }
   status: string; status_changed_at: string | null; first_seen: string | null; last_seen: string | null; active: boolean; is_hot: boolean
-  platforms: string[]; source_count: number; multi_platform: boolean
+  platforms: string[]; source_count: number; multi_platform: boolean; synthetic: boolean
 }
 
 export interface ClusterDetail extends Cluster {

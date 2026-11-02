@@ -63,6 +63,7 @@ export default function ClusterDrawer() {
       {c && (
         <>
           <h2 style={{ margin: '0 0 6px', fontSize: 20, lineHeight: 1.3 }}>{c.title}</h2>
+          <Button type="primary" style={{ margin: '10px 0 16px' }} onClick={() => setSp(p => { const n = new URLSearchParams(p); n.delete('problem'); n.set('decision', String(c.id)); return n })}>Подготовить данные для решения</Button>
           <Space wrap size={6} style={{ marginBottom: 10 }}>
             <PriorityTag value={c.priority} score={c.priority_score} />
             <StatusTag value={c.status} />

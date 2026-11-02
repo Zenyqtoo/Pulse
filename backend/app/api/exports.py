@@ -2,6 +2,7 @@
 always masked text; Direct items excluded for the viewer role."""
 import csv
 import io
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,7 +35,7 @@ from app.filters import Filters, filters_dep
 from app.models import User
 from app.reference import DEPT_NAMES, PRIORITY_NAMES, SENTIMENT_NAMES, STATUS_NAMES, TYPE_NAMES
 from app.security import get_current_user
-from app.serializers import cluster_dict
+from app.serializers import cluster_dict, voice
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 KIND_NAMES = {"post": "пост", "comment": "комментарий", "reply": "ответ", "message": "личное сообщение",
@@ -43,13 +44,16 @@ GEO_NAMES = {"local": "Павлодар", "possible": "возможно Павл
 MAX_ROWS = 20000
 
 _FONT_DIRS = ["/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/dejavu", str(Path(__file__).parent.parent / "fonts")]
+_WIN_FONTS = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"
+# (regular, bold) files with Cyrillic; Windows has no DejaVu, so Arial stands in under the same name
+_FONT_FILES = [(Path(d) / "DejaVuSans.ttf", Path(d) / "DejaVuSans-Bold.ttf") for d in _FONT_DIRS] + [
+    (_WIN_FONTS / "arial.ttf", _WIN_FONTS / "arialbd.ttf")]
 
 
 def _register_fonts() -> str:
     if "DejaVu" in pdfmetrics.getRegisteredFontNames():
         return "DejaVu"
-    for d in _FONT_DIRS:
-        reg, bold = Path(d) / "DejaVuSans.ttf", Path(d) / "DejaVuSans-Bold.ttf"
+    for reg, bold in _FONT_FILES:
         if reg.exists():
             pdfmetrics.registerFont(TTFont("DejaVu", str(reg)))
             pdfmetrics.registerFont(TTFont("DejaVu-Bold", str(bold if bold.exists() else reg)))
@@ -63,13 +67,13 @@ def _fmt_dt(s: str | None) -> str:
     return datetime.fromisoformat(s).astimezone(timezone.utc).strftime("%d.%m.%Y %H:%M")
 
 
-ITEM_COLS = [("ID", "id"), ("Дата (UTC)", "date"), ("Платформа", "platform"), ("Источник", "source"), ("Тип записи", "kind"), ("Подразделение", "dept"),
+ITEM_COLS = [("ID", "id"), ("Дата (UTC)", "date"), ("Платформа", "platform"), ("Источник", "source"), ("Тип записи", "kind"), ("Кто пишет", "voice"), ("Подразделение", "dept"),
              ("Уверенность", "conf"), ("Тональность", "sent"), ("Оценка", "score"), ("Тип", "type"),
              ("Район", "district"), ("Проблема", "problem"), ("Приоритет проблемы", "priority"),
              ("Статус", "status"), ("Срочность", "urgency"), ("Direct", "direct"), ("Текст (маскированный)", "text"),
              ("Ссылка", "url"), ("Пост-источник", "parent_url"), ("Геопривязка", "geo"), ("Модель", "model")]
 CLUSTER_COLS = [("ID", "id"), ("Проблема", "title"), ("Подразделение", "dept"), ("Район", "district"),
-                ("Приоритет", "priority"), ("Балл", "score"), ("Обращений", "count"), ("За 24 ч", "c24"),
+                ("Приоритет", "priority"), ("Балл", "score"), ("Записей", "count"), ("За 24 ч", "c24"),
                 ("Доля негатива", "neg"), ("Статус", "status"), ("Первое", "first"), ("Последнее", "last"),
                 ("Резюме", "summary")]
 
@@ -92,8 +96,27 @@ def _item_rows(db: Session, f: Filters, user: User) -> list[dict]:
             "text": i.text_masked, "url": i.url or "", "model": e.model if e else "",
             "platform": PLATFORM_NAMES.get(i.platform, i.platform), "kind": KIND_NAMES.get(i.kind, i.kind),
             "parent_url": i.parent_url or "", "geo": GEO_NAMES.get(i.geo_status, i.geo_status),
+            "voice": VOICE_NAMES[voice(i)], "is_resident": voice(i) == "resident",
         })
     return out
+
+
+VOICE_NAMES = {"resident": "житель", "media": "СМИ / канал"}
+TONE_NOTE = ("Тональность публикаций СМИ и официальных каналов описывает тон текста, а не мнение жителей; "
+             "число записей — это не число людей.")
+
+
+def _set_title(residents: int, media: int, subject: str = "") -> str:
+    """Report title that matches who actually speaks in the set: news must not be called residents' appeals."""
+    if residents and not media:
+        return "Сообщения жителей" + subject
+    if media and not residents:
+        return "Публикации СМИ и официальных каналов" + subject
+    return "Сообщения жителей и публикации СМИ" + subject
+
+
+def _voice_line(residents: int, media: int) -> str:
+    return f"Из них: сообщений жителей — {residents}, публикаций СМИ и официальных каналов — {media}. {TONE_NOTE}"
 
 
 def _cluster_rows(db: Session, user: User, department, priority, status) -> list[dict]:
@@ -209,6 +232,8 @@ def _filter_line(f: Filters) -> str:
         parts.append(f"поиск: «{f.q}»")
     if f.origin:
         parts.append("данные: " + ("реальные" if f.origin == "real" else "синтетические"))
+    if f.voice:
+        parts.append("кто пишет: " + ("жители" if f.voice == "resident" else "СМИ и официальные каналы"))
     if f.platforms:
         parts.append("платформы: " + ", ".join(PLATFORM_NAMES.get(x, x) for x in f.platforms))
     parts.append("география: " + {"possible": "возможно Павлодар", "not_local": "не Павлодар", "all": "все"}.get(
@@ -223,21 +248,24 @@ def export_items(fmt: str, f: Filters = Depends(filters_dep), db: Session = Depe
     audit(db, user, "export.items", fmt=fmt, rows=len(rows))
     db.commit()
     name = f"obrashcheniya_{datetime.now().strftime('%Y%m%d_%H%M')}"
+    residents = sum(r["is_resident"] for r in rows)
+    title = _set_title(residents, len(rows) - residents)
     if fmt == "csv":
         return _csv(ITEM_COLS, rows, name)
     if fmt == "xlsx":
-        return _xlsx(ITEM_COLS, rows, name, "Обращения", [f"Обращения жителей — {get_settings().app_name}",
-                                                          _filter_line(f), f"Строк: {len(rows)}"])
+        return _xlsx(ITEM_COLS, rows, name, "Записи", [f"{title} — {get_settings().app_name}", _filter_line(f),
+                                                          f"Строк: {len(rows)}", _voice_line(residents, len(rows) - residents)])
     if fmt == "pdf":
         def build(font, st):
-            head = ["ID", "Дата", "Источник", "Подразделение", "Тон.", "Район", "Статус", "Текст"]
-            data = [head] + [[r["id"], r["date"], Paragraph(r["source"], st["cell"]), Paragraph(r["dept"], st["cell"]),
+            head = ["ID", "Дата", "Источник", "Кто", "Подразделение", "Тон.", "Район", "Статус", "Текст"]
+            data = [head] + [[r["id"], r["date"], Paragraph(r["source"], st["cell"]), Paragraph(r["voice"], st["cell"]),
+                              Paragraph(r["dept"], st["cell"]),
                               r["sent"][:5], Paragraph(r["district"], st["cell"]), Paragraph(r["status"], st["cell"]),
                               Paragraph(r["text"][:600].replace("<", "&lt;"), st["cell"])] for r in rows[:2000]]
-            widths = [12 * mm, 24 * mm, 30 * mm, 30 * mm, 14 * mm, 25 * mm, 22 * mm, 116 * mm]
+            widths = [12 * mm, 24 * mm, 30 * mm, 17 * mm, 28 * mm, 12 * mm, 23 * mm, 20 * mm, 107 * mm]
             note = f"Строк: {len(rows)}" + (" (в PDF показаны первые 2000; полный список — XLSX/CSV)" if len(rows) > 2000 else "")
-            return [Paragraph("Обращения жителей", st["h1"]), Paragraph(_filter_line(f), st["small"]),
-                    Paragraph(note, st["small"]), Spacer(1, 4 * mm), _table(data, widths, font)]
+            return [Paragraph(title, st["h1"]), Paragraph(_filter_line(f), st["small"]),
+                    Paragraph(note, st["small"]), Paragraph(_voice_line(residents, len(rows) - residents), st["small"]), Spacer(1, 4 * mm), _table(data, widths, font)]
         return _pdf(build, name)
     raise HTTPException(400, "Формат: csv, xlsx или pdf")
 
@@ -256,13 +284,14 @@ def export_clusters(fmt: str, department: str | None = None, priority: str | Non
                                                             f"Строк: {len(rows)}"])
     if fmt == "pdf":
         def build(font, st):
-            head = ["ID", "Проблема", "Подразделение", "Район", "Приоритет", "Балл", "Обращ.", "24 ч", "Негатив", "Статус", "Резюме"]
+            head = ["ID", "Проблема", "Подразделение", "Район", "Приоритет", "Балл", "Записей", "24 ч", "Негатив", "Статус", "Резюме"]
             data = [head] + [[r["id"], Paragraph(r["title"], st["cell"]), Paragraph(r["dept"], st["cell"]),
                               Paragraph(r["district"], st["cell"]), r["priority"], r["score"], r["count"], r["c24"],
                               r["neg"], Paragraph(r["status"], st["cell"]), Paragraph(r["summary"][:500], st["cell"])]
                              for r in rows]
             widths = [10 * mm, 50 * mm, 28 * mm, 22 * mm, 17 * mm, 11 * mm, 12 * mm, 10 * mm, 14 * mm, 22 * mm, 77 * mm]
-            return [Paragraph("Проблемы и приоритеты", st["h1"]), Paragraph(f"Активных проблем: {len(rows)}", st["small"]),
+            return [Paragraph("Проблемы и приоритеты", st["h1"]), Paragraph(f"Активных проблем: {len(rows)}. «Записей» — сообщения и публикации в группе, а не число людей; "
+                              "в карточке проблемы они разделены на сообщения жителей и публикации СМИ.", st["small"]),
                     Spacer(1, 4 * mm), _table(data, widths, font)]
         return _pdf(build, name)
     raise HTTPException(400, "Формат: csv, xlsx или pdf")
@@ -293,33 +322,37 @@ def export_report(f: Filters = Depends(filters_dep), db: Session = Depends(get_d
     """One-page management report: KPIs, departments, top problems (dashboards 1–3 on paper)."""
     ov = overview(Filters(**f.__dict__), db, user)
     dp = dept_stats(Filters(**f.__dict__), db, user)
+    items, _ = query_items(db, Filters(**f.__dict__), user, "date_desc", MAX_ROWS)
+    residents = sum(voice(i) == "resident" for i in items)
+    media = len(items) - residents
     audit(db, user, "export.report", fmt="pdf")
     db.commit()
 
     def build(font, st):
         k = ov["kpis"]
         delta = f" ({'+' if (k['total_delta_pct'] or 0) >= 0 else ''}{k['total_delta_pct']}% к пред. периоду)" if k["total_delta_pct"] is not None else ""
-        kpi = [["Обращений", "Индекс настроения", "Высокий приоритет", "Решено", "На ручной проверке", "Срочных"],
+        kpi = [["Записей", "Индекс тона", "Высокий приоритет", "Решено", "На ручной проверке", "Срочных"],
                [f"{k['total']}{delta}", f"{k['mood_index']:+}", f"{k['high_priority_share']}%", f"{k['resolved_share']}%",
                 f"{k['review_share']}%", k["urgent"]]]
         sent = ov["sentiment"]
         depts = ov["by_department"][:11]
-        story = [Paragraph(f"Сводка обращений жителей — {get_settings().city_name}", st["h1"]),
-                 Paragraph(_filter_line(f), st["small"]), Spacer(1, 3 * mm),
+        story = [Paragraph(_set_title(residents, media, f" — сводка, {get_settings().city_name}"), st["h1"]),
+                 Paragraph(_filter_line(f), st["small"]), Paragraph(_voice_line(residents, media), st["small"]),
+                 Spacer(1, 3 * mm),
                  _table(kpi, [45 * mm] * 6, font), Spacer(1, 2 * mm),
                  Paragraph(f"Тональность: положительных {sent['positive']}, нейтральных {sent['neutral']}, "
-                           f"отрицательных {sent['negative']}. Индекс настроения = доля положительных − доля отрицательных, п.п.",
+                           f"отрицательных {sent['negative']}. Индекс тона = доля положительных − доля отрицательных, п.п. Тональность определена автоматически.",
                            st["small"]),
                  Paragraph("Нагрузка по подразделениям", st["h2"]),
                  _bar([d["name"] for d in depts], [d["count"] for d in depts], "#2F6FB0", font=font),
                  Paragraph("Топ проблем по приоритету", st["h2"])]
-        top = [["#", "Проблема", "Подразделение", "Приоритет", "Балл", "Обращений", "За 24 ч", "Статус"]]
+        top = [["#", "Проблема", "Подразделение", "Приоритет", "Балл", "Записей", "За 24 ч", "Статус"]]
         for c in ov["top_problems"]:
             top.append([c["id"], Paragraph(c["title"], st["cell"]), c["department_name"], PRIORITY_NAMES[c["priority"]],
                         c["priority_score"], c["item_count"], c["count_24h"], STATUS_NAMES[c["status"]]])
         story.append(_table(top, [10 * mm, 95 * mm, 38 * mm, 20 * mm, 14 * mm, 18 * mm, 15 * mm, 40 * mm], font))
         story.append(Paragraph("Показатели подразделений", st["h2"]))
-        rows = [["Подразделение", "Обращений", "Негатив", "Индекс", "Решено", "Ср. время передачи, ч", "Открытых проблем", "Рейтинг"]]
+        rows = [["Подразделение", "Записей", "Негатив", "Индекс", "Решено", "Ср. время передачи, ч", "Открытых проблем", "Рейтинг"]]
         for d in dp["departments"]:
             rows.append([d["name"], d["count"], d["negative"], d["mood_index"], f"{d['resolved_share']}%",
                          d["avg_hours_to_transfer"] if d["avg_hours_to_transfer"] is not None else "—",

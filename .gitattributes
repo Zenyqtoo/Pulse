@@ -1,0 +1,2 @@
+# Preserve the exact bytes verified by the archived model's SHA256 manifest.
+backend/app/local_model_assets/* -text

@@ -3,6 +3,27 @@
 Checked on 30.10.2026. Nothing here is guessed: every row says what was actually verified.
 The same list is built into the app (**Источники и сбор → Рекомендованные**) and can be added with one click.
 
+## Re-check and real collection on 01.11.2026
+
+Collected into the local demo database next to the synthetic set (real and synthetic items are flagged by
+`source.is_synthetic`, never clustered together, and filterable with `origin=real|synthetic`).
+
+| Source | Reachable | Collected | Local / possible / other place | Dates |
+| --- | --- | --- | --- | --- |
+| t.me/s/pavlodaronline | yes | 60 posts | 25 / 27 / 8 | 14.08–31.10.2026 |
+| t.me/s/pavlodarenergo | yes, last post 14.10 | 40 posts | 24 / 15 / 1 | 26.02–14.10.2026 |
+| t.me/s/pavlodar («Павлодарец», new) | yes | 60 posts (3 channel self-promo → spam, 4 duplicates) | 22 / 26 / 7 | 25.10–31.10.2026 |
+| pavlodarnews.kz RSS, 5 Russian rubrics (new) | yes; feeds are ~400 KB, need a 60 s timeout | 200 articles (4 duplicates) | 82 / 90 / 25 | 12.09–31.10.2026 |
+| inform.kz RSS, keyword «павлодар» (new) | yes | 6 articles, all from April 2024 | 2 / 3 / 1 | 26.04–29.04.2024 |
+| t.me/s/tipavlo | **web preview closed** | — | — | needs Telethon |
+| t.me/s/baspasozpvl | preview shows only document files | — | — | nothing to parse |
+| pavon.kz | no RSS (`/rss` 404); its news reach Telegram via @pavlodaronline | — | — | — |
+
+Total: 366 real items, 155 of them local after spam and duplicates. **All of them are publications of media and
+official channels, none is a resident's message**: items are tagged `voice=media` and the decision card never quotes
+them as residents. Resident voices need Telethon comments (@tipavlo), the akimat's Instagram account or the
+Telegram bot token — see below.
+
 ## Telegram
 
 | Source | URL | What it is | Verified | Collection |

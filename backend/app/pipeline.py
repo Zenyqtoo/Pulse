@@ -110,6 +110,8 @@ def run_source(db: Session, source: Source, trigger: str = "schedule") -> Collec
     state_row = db.get(AppState, state_key)
     collector.state = dict(state_row.value) if state_row else {}
     since = source.last_run_at - timedelta(hours=6) if source.last_run_at and source.last_status == "ok" else None
+    if since and since.tzinfo is None:   # SQLite returns naive datetimes; collectors compare with aware ones
+        since = since.replace(tzinfo=timezone.utc)
     try:
         raw = collector.fetch(since)
         run = ingest(db, source, raw, trigger)

@@ -1,6 +1,7 @@
 """Group similar items into problems (clusters), keep cluster identity stable across runs,
 compute priority, and generate titles/summaries."""
 import logging
+import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
@@ -42,6 +43,18 @@ def _groups(items: list[Item], threshold: float) -> list[list[int]]:
     for idx, lab in enumerate(labels):
         groups.setdefault(int(lab), []).append(idx)
     return _merge_same_problem(items, list(groups.values())), vecs
+
+
+def headline(text: str, limit: int = 80) -> str:
+    """First sentence of a message or article without leading emoji, cut at a word boundary."""
+    t = re.sub(r"^[^\wА-Яа-яЁё«\"(]+", "", (text or "").strip())
+    first, _, rest = t.partition("\n")
+    if rest.strip() and first.isupper() and len(first.split()) <= 3:   # channel rubric such as "ПОДРОБНОСТИ"
+        t = re.sub(r"^[^\wА-Яа-яЁё«\"(]+", "", rest.strip())
+    t = re.split(r"(?<=[.!?])\s|\n", t, maxsplit=1)[0].strip().rstrip(".")
+    if len(t) > limit:
+        t = t[:limit].rsplit(" ", 1)[0].rstrip(",;:—–-") + "…"
+    return t or "Проблема без названия"
 
 
 def _key(item: Item) -> tuple[str, str] | None:
@@ -125,14 +138,15 @@ def recluster(db: Session, summarise: bool = True, threshold: float | None = Non
     threshold = threshold or embeddings.default_threshold()
     since = _now() - timedelta(days=WINDOW_DAYS)
     items = db.scalars(
-        select(Item).options(joinedload(Item.enrichment))
+        select(Item).options(joinedload(Item.enrichment), joinedload(Item.source))
         .where(Item.process_state == "done", Item.is_spam.is_(False), Item.duplicate_of_id.is_(None),
                Item.geo_status == "local", Item.published_at >= since)
     ).unique().all()
-    by_dept: dict[str, list[Item]] = {}
+    # Real and synthetic messages never share a problem: a demo complaint must not inflate a real one
+    by_dept: dict[tuple[str, bool], list[Item]] = {}
     for it in items:
         if it.enrichment and it.enrichment.message_type != "gratitude":
-            by_dept.setdefault(it.enrichment.primary_department, []).append(it)
+            by_dept.setdefault((it.enrichment.primary_department, bool(it.source and it.source.is_synthetic)), []).append(it)
 
     existing = db.scalars(select(Cluster).options(joinedload(Cluster.members)).where(Cluster.active.is_(True))).unique().all()
     existing_sets = {c.id: {m.item_id for m in c.members} for c in existing}
@@ -140,7 +154,7 @@ def recluster(db: Session, summarise: bool = True, threshold: float | None = Non
     used: set[int] = set()
     stats = {"items": len(items), "clusters": 0, "new": 0, "kept": 0, "retired": 0, "summaries": 0}
 
-    for dept, dept_items in by_dept.items():
+    for (dept, _synthetic), dept_items in by_dept.items():
         groups, vecs = _groups(dept_items, threshold)
         for g in groups:
             members = [dept_items[i] for i in g]
@@ -176,10 +190,11 @@ def recluster(db: Session, summarise: bool = True, threshold: float | None = Non
                 c.members.append(ClusterItem(item_id=m.id, similarity=round(sims[m.id], 3)))
             update_cluster_stats(c, members, copies=duplicates_of(db, members))
             types = Counter(m.enrichment.problem_type for m in members if m.enrichment.problem_type)
-            hint = types.most_common(1)[0][0] if types else members[0].text_masked[:60]
+            hint = types.most_common(1)[0][0] if types else headline(min(members, key=lambda m: len(m.text_masked)).text_masked)
             if c.district and c.district.lower() not in hint.lower():
                 hint = f"{hint} — {c.district}"
-            if summarise and (changed or not c.summary):
+            # Extractive titles are free to recompute, so they always follow the current members
+            if summarise and (changed or not c.summary or c.summary_model == "extractive"):
                 ordered = sorted(members, key=lambda m: -sims[m.id])
                 c.title, c.summary, c.summary_model = llm.summarise_cluster([m.text_masked for m in ordered], hint)
                 stats["summaries"] += 1

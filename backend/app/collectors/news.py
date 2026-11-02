@@ -93,7 +93,8 @@ class NewsCollector(Collector):
         sel = {"comment": self.config.get("comment_selector"), "text": self.config.get("comment_text_selector"),
                "date": self.config.get("comment_date_selector")}
         out: list[RawItem] = []
-        with httpx.Client(timeout=20, headers={"User-Agent": UA}, follow_redirects=True) as client:
+        # Regional feeds can be several hundred KB and slow to serve
+        with httpx.Client(timeout=httpx.Timeout(60, connect=15), headers={"User-Agent": UA}, follow_redirects=True) as client:
             for url in feeds:
                 try:
                     r = client.get(url)

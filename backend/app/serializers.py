@@ -1,6 +1,28 @@
 """Response shapes. List endpoints never include original text: only the masked version."""
+from datetime import timezone
+
 from app.models import Cluster, Enrichment, Item
 from app.reference import DEPT_NAMES
+
+
+def iso(dt):
+    """ISO time with an explicit zone. SQLite returns naive UTC values, which browsers would read as local time."""
+    if dt is None:
+        return None
+    return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).isoformat()
+
+
+RESIDENT_KINDS = {"comment", "reply", "message", "review"}
+
+
+def voice(it: Item) -> str:
+    """Who is speaking: 'resident' (comments, replies, Direct, appeals) or 'media' (posts of news and official
+    channels, articles). News must never be presented as residents' messages."""
+    if it.is_direct or it.kind in RESIDENT_KINDS:
+        return "resident"
+    if it.source and it.source.type in ("demo", "upload", "threads"):
+        return "resident"   # synthetic resident set, uploaded appeals, posts by Threads users
+    return "media"
 
 
 def enrichment_dict(e: Enrichment | None) -> dict | None:
@@ -14,7 +36,7 @@ def enrichment_dict(e: Enrichment | None) -> dict | None:
         "urgency_markers": e.urgency_markers or [], "is_urgent": e.is_urgent, "rationale": e.rationale,
         "model": e.model, "prompt_version": e.prompt_version, "latency_ms": e.latency_ms,
         "needs_review": e.needs_review, "reviewed": e.reviewed,
-        "reviewed_at": e.reviewed_at.isoformat() if e.reviewed_at else None,
+        "reviewed_at": iso(e.reviewed_at),
         "model_department": e.model_department, "model_sentiment": e.model_sentiment,
         "corrected": bool(e.reviewed and (e.model_department != e.primary_department or e.model_sentiment != e.sentiment)),
     }
@@ -26,7 +48,7 @@ def item_dict(it: Item, cluster: Cluster | None = None, full: bool = False) -> d
         "source_type": it.source.type if it.source else None,
         "is_synthetic": bool(it.source and it.source.is_synthetic),
         "url": it.url, "text": it.text_masked, "lang": it.lang,
-        "published_at": it.published_at.isoformat(), "collected_at": it.collected_at.isoformat() if it.collected_at else None,
+        "published_at": iso(it.published_at), "collected_at": iso(it.collected_at),
         "author": (it.author_hash or "")[:8] or None,
         "reactions": it.reactions, "replies": it.replies, "views": it.views,
         "is_direct": it.is_direct, "is_spam": it.is_spam, "spam_reason": it.spam_reason,
@@ -34,7 +56,7 @@ def item_dict(it: Item, cluster: Cluster | None = None, full: bool = False) -> d
         "process_state": it.process_state, "pii_found": it.pii_found or [],
         "enrichment": enrichment_dict(it.enrichment),
         "cluster": {"id": cluster.id, "title": cluster.title, "priority": cluster.priority} if cluster else None,
-        "platform": it.platform, "kind": it.kind, "parent_url": it.parent_url,
+        "platform": it.platform, "kind": it.kind, "parent_url": it.parent_url, "voice": voice(it),
         "geo_status": it.geo_status, "geo_reason": it.geo_reason, "geo_reviewed": it.geo_reviewed,
     }
     if full:
@@ -57,10 +79,11 @@ def cluster_dict(c: Cluster) -> dict:
         "count_prev_24h": c.count_prev_24h, "growth_rate": c.growth_rate, "neg_share": c.neg_share,
         "reach": c.reach, "has_urgent": c.has_urgent, "priority": c.priority, "priority_score": c.priority_score,
         "priority_factors": c.priority_factors, "status": c.status,
-        "status_changed_at": c.status_changed_at.isoformat() if c.status_changed_at else None,
-        "first_seen": c.first_seen.isoformat() if c.first_seen else None,
-        "last_seen": c.last_seen.isoformat() if c.last_seen else None,
+        "status_changed_at": iso(c.status_changed_at),
+        "first_seen": iso(c.first_seen),
+        "last_seen": iso(c.last_seen),
         "active": c.active, "is_hot": c.count_24h >= 3 and c.growth_rate >= 1.5,
         "platforms": c.platforms or [], "source_count": c.source_count,
+        "synthetic": "demo" in (c.platforms or []),
         "multi_platform": len([p for p in (c.platforms or []) if p not in ("demo", "upload")]) > 1,
     }

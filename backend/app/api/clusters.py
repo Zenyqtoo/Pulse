@@ -9,9 +9,9 @@ from app.ai import clustering
 from app.api.items import set_item_status
 from app.audit import audit
 from app.db import get_db
-from app.models import Cluster, ClusterItem, Department, Item, User, utcnow
+from app.models import Cluster, ClusterItem, Department, Item, Source, User, utcnow
 from app.security import get_current_user, require_role
-from app.serializers import cluster_dict, item_dict
+from app.serializers import cluster_dict, iso, item_dict
 
 router = APIRouter(prefix="/api/clusters", tags=["clusters"])
 
@@ -22,7 +22,7 @@ SORTS = {"priority": Cluster.priority_score.desc(), "count": Cluster.item_count.
 def cluster_query(user: User, department: str | None = None, priority: str | None = None,
                   status: str | None = None, district: str | None = None, q: str | None = None,
                   hot: bool | None = None, include_inactive: bool = False, platform: str | None = None,
-                  multi: bool | None = None):
+                  multi: bool | None = None, origin: str | None = None):
     stmt = select(Cluster)
     if not include_inactive:
         stmt = stmt.where(Cluster.active.is_(True))
@@ -45,15 +45,26 @@ def cluster_query(user: User, department: str | None = None, priority: str | Non
                                          .where(Item.platform.in_(platform.split(",")))))
     if multi:
         stmt = stmt.where(func.json_array_length(Cluster.platforms) > 1)
+    if origin in ("real", "synthetic"):
+        stmt = stmt.where(origin_condition(origin))
     return stmt
+
+
+def origin_condition(origin: str):
+    """Problems are built from one origin only (see clustering.recluster), so one member decides."""
+    synthetic = (select(ClusterItem.cluster_id).join(Item, Item.id == ClusterItem.item_id)
+                 .join(Source, Source.id == Item.source_id).where(Source.is_synthetic.is_(True)))
+    return Cluster.id.in_(synthetic) if origin == "synthetic" else Cluster.id.not_in(synthetic)
 
 
 @router.get("")
 def list_clusters(department: str | None = None, priority: str | None = None, status: str | None = None,
                   district: str | None = None, q: str | None = Query(None, max_length=200), hot: bool | None = None,
-                  platform: str | None = None, multi: bool | None = None, sort: str = "priority", page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200),
+                  platform: str | None = None, multi: bool | None = None,
+                  origin: str | None = Query(None, pattern="^(real|synthetic)$"), sort: str = "priority", page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200),
                   db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    stmt = cluster_query(user, department, priority, status, district, q, hot, platform=platform, multi=multi)
+    stmt = cluster_query(user, department, priority, status, district, q, hot, platform=platform, multi=multi,
+                         origin=origin)
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
     rows = db.scalars(stmt.order_by(SORTS.get(sort, SORTS["priority"]), Cluster.id.desc())
                       .limit(page_size).offset((page - 1) * page_size)).all()
@@ -76,7 +87,7 @@ def get_cluster(cluster_id: int, db: Session = Depends(get_db), user: User = Dep
     # Reposts of the same text on other sources: kept out of counts, shown so operators can open every original
     copies = clustering.duplicates_of(db, [m.item for m in visible])
     d["copies"] = [{"id": x.id, "duplicate_of_id": x.duplicate_of_id, "platform": x.platform, "url": x.url,
-                    "source_name": x.source.name if x.source else None, "published_at": x.published_at.isoformat()}
+                    "source_name": x.source.name if x.source else None, "published_at": iso(x.published_at)}
                    for x in copies if not (x.is_direct and user.role == "viewer")]
     # daily counts for the sparkline
     days: dict[str, int] = {}
@@ -94,6 +105,32 @@ class ClusterUpdate(BaseModel):
     comment: str | None = Field(None, max_length=500)
 
 
+@router.get("/{cluster_id}/decision")
+def decision_card(cluster_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    from app.decision import build_decision
+
+    c = db.get(Cluster, cluster_id, options=[joinedload(Cluster.members).joinedload(ClusterItem.item)
+                                           .joinedload(Item.enrichment)])
+    if c is None:
+        raise HTTPException(404, "Проблема не найдена")
+    if user.department_code and c.department != user.department_code:
+        raise HTTPException(403, "Проблема относится к другому подразделению")
+    counted = [m.item for m in c.members if not m.item.duplicate_of_id and not m.item.is_spam]
+    items = [i for i in counted if not (i.is_direct and user.role == "viewer")]
+    result = build_decision(c, items, hidden_direct=len(counted) - len(items))
+    if (c.summary_model or "").startswith("curated:"):
+        from app.defense import MANIFEST
+        import json
+
+        spec = next((s for s in json.loads(MANIFEST.read_text(encoding="utf8"))
+                     if "curated:" + s["key"] == c.summary_model), None)
+        if spec:
+            result["selection_note"] = "Редакторская подборка реальных записей. " + spec["period_note"] + " " + spec["evidence_note"]
+    audit(db, user, "decision.prepare", "cluster", c.id, messages=len(items))
+    db.commit()
+    return result
+
+
 @router.patch("/{cluster_id}")
 def update_cluster(cluster_id: int, body: ClusterUpdate, db: Session = Depends(get_db),
                    user: User = Depends(require_role("operator"))):
@@ -101,6 +138,8 @@ def update_cluster(cluster_id: int, body: ClusterUpdate, db: Session = Depends(g
                                              .joinedload(Item.enrichment)])
     if c is None:
         raise HTTPException(404, "Проблема не найдена")
+    if user.department_code and c.department != user.department_code:
+        raise HTTPException(403, "Проблема относится к другому подразделению")
     changes = {}
     if body.department and body.department != c.department:
         if not db.scalar(select(Department.id).where(Department.code == body.department)):

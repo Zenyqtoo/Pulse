@@ -91,6 +91,18 @@ def enrich(text_masked: str, departments: list[dict], examples: list[dict] | Non
     s = get_settings()
     allowed = {d["code"] for d in departments}
     started = time.perf_counter()
+    if s.local_model_enabled:
+        from app.ai import local_client
+        try:
+            result,version = local_client.analyse(text_masked,departments,context,s)
+            return EnrichOutcome(result,version,int((time.perf_counter()-started)*1000))
+        except Exception as error:
+            # Local-only mode must not silently send data to external APIs.
+            result = rules.analyse(text_masked,departments).validate_departments(allowed)
+            result.department_confidence = 0.0
+            result.rationale = "Локальная модель недоступна; резервные правила, требуется проверка. " + result.rationale
+            return EnrichOutcome(result,"rules-v1 (local fallback)",int((time.perf_counter()-started)*1000),
+                                 "local model error: " + type(error).__name__)
     client = get_client()
     if client is None:
         res = rules.analyse(text_masked, departments).validate_departments(allowed)
@@ -147,7 +159,7 @@ def summarise_cluster(texts: list[str], hint_title: str) -> tuple[str, str, str]
         except Exception as e:
             log.warning("cluster summary failed: %s", e)
     first = sample[0][:220] + ("…" if len(sample[0]) > 220 else "") if sample else ""
-    summary = f"{len(texts)} обращ. по теме «{hint_title}». Пример: {first}"
+    summary = f"{len(texts)} сообщ. по теме «{hint_title}». Пример: {first}"
     return hint_title, summary, "extractive"
 
 

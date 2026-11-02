@@ -14,6 +14,7 @@ SPAM_WORDS = ["скидк", "акция", "распродаж", "заработ"
               "кредит без", "займ", "ұтыс", "жеңілдік", "жарнама", "заработок", "инвест"]
 _URL = re.compile(r"https?://|www\.|t\.me/|@\w{4,}")
 _PRICE = re.compile(r"\d[\d\s]*\s?(тг|тенге|₸|руб|\$)", re.I)
+_CHANNEL_PROMO = re.compile(r"подпиш\w*\s+на\s+(?:наш\s+)?канал|подпис\w*\s+на\s+нас\b")
 
 NEG = ["нет ", "не работает", "сломан", "ужас", "кошмар", "безобраз", "плохо", "грязн", "опасн", "жалоб",
        "надоело", "сколько можно", "невозможно", "холодно", "воняет", "яма", "разбит", "отключ", "авари",
@@ -103,6 +104,8 @@ def spam_check(text: str) -> tuple[bool, str | None]:
         return True, "много ссылок"
     if len(promo) >= 2:
         return True, "рекламные слова: " + ", ".join(promo[:3])
+    if _CHANNEL_PROMO.search(t):
+        return True, "самореклама канала"
     if promo and _PRICE.search(t) and links:
         return True, "реклама с ценой и ссылкой"
     return False, None
@@ -179,7 +182,8 @@ def entities(text: str, hits: list[str]) -> Entities:
         district=normalize_district(d.group(1).strip() if d else None, text),
         address=a.group(1).strip() if a else None,
         object=o.group(1).strip() if o else None,
-        problem_type=problem_type(text) or (hits[0].strip().capitalize() if hits else None),
+        # Only named problems; a bare keyword stem ("Школ") is not a readable topic
+        problem_type=problem_type(text),
     )
 
 

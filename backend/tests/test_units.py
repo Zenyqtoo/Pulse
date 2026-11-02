@@ -20,6 +20,13 @@ def test_mask_structured_identifiers():
     assert {"iin", "phone", "email", "card"} <= set(kinds)
 
 
+def test_mask_first_names_without_patronymic():
+    out, kinds = mask_pii("Павлодар. Иван Петров: нет света. Номер для связи, Жанар")
+    assert "Иван" not in out and "Петров" not in out and "Жанар" not in out and "name" in kinds
+    # everyday words that are also names stay intact
+    assert mask_pii("Канат порвался, вера в ремонт пропала")[0] == "Канат порвался, вера в ремонт пропала"
+
+
 def test_mask_names_and_apartments():
     out, kinds = mask_pii("Меня зовут Айгерим Сейткали, Иванов Сергей Петрович, Петров И.И. живёт в кв. 45")
     assert "Айгерим" not in out and "Сергей" not in out and "Петров" not in out and "45" not in out
@@ -184,3 +191,9 @@ def test_unknown_department_is_coerced(monkeypatch):
     llm.set_client(FakeClient([dict(GOOD, departments=["nope"], primary_department="nope")]))
     out = llm.enrich("x", DEPARTMENTS)
     assert out.result.primary_department == "other"
+
+
+def test_channel_self_promo_is_spam():
+    from app.ai.rules import spam_check
+    assert spam_check("🌱 Если вам полезны новости о Павлодаре, подпишитесь на канал «Павлодарец»")[0]
+    assert not spam_check("Подписали договор на ремонт канала у дамбы")[0]

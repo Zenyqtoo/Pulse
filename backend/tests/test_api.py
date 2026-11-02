@@ -151,3 +151,14 @@ def test_delete_on_request(client, admin, operator):
     assert client.delete(f"/api/items/{item['id']}", headers=operator).status_code == 403
     assert client.delete(f"/api/items/{item['id']}", headers=admin).status_code == 200
     assert client.get(f"/api/items/{item['id']}", headers=admin).status_code == 404
+
+
+def test_export_titles_follow_who_speaks(client, operator):
+    from app.api.exports import TONE_NOTE, _set_title
+
+    assert _set_title(0, 12) == "Публикации СМИ и официальных каналов"     # news are never "residents' appeals"
+    assert _set_title(5, 0) == "Сообщения жителей"
+    assert _set_title(5, 12) == _set_title(0, 0) == "Сообщения жителей и публикации СМИ"
+    assert "не мнение жителей" in TONE_NOTE
+    csv = client.get("/api/export/items.csv", headers=operator).text
+    assert "Кто пишет" in csv.splitlines()[0]

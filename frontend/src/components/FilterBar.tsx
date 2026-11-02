@@ -9,16 +9,16 @@ import { PRIO_LABEL, SENT_LABEL, STATUS_LABEL, TYPE_LABEL } from '../theme'
 const opts = (m: Record<string, string>) => Object.entries(m).map(([value, label]) => ({ value, label }))
 const multi = (v?: string) => (v ? v.split(',') : [])
 
-type Field = 'period' | 'platform' | 'source' | 'department' | 'sentiment' | 'priority' | 'status' | 'type' | 'district' | 'q' | 'urgent' | 'origin'
-const ALL: Field[] = ['period', 'q', 'platform', 'department', 'sentiment', 'priority', 'status', 'source', 'district', 'type', 'urgent', 'origin']
+type Field = 'period' | 'platform' | 'source' | 'department' | 'sentiment' | 'priority' | 'status' | 'type' | 'district' | 'q' | 'urgent' | 'origin' | 'voice'
+const ALL: Field[] = ['period', 'q', 'platform', 'department', 'sentiment', 'priority', 'status', 'source', 'district', 'type', 'urgent', 'origin', 'voice']
 
 export default function FilterBar({ fields = ALL }: { fields?: Field[] }) {
   const { meta, user } = useApp()
   const { filters, setFilters, reset, activeCount } = useFilters()
   const [q, setQ] = useState(filters.q ?? '')
-  const secondaryActive = !!(filters.source || filters.district || filters.type || filters.origin || filters.urgent)
+  const secondaryActive = !!(filters.source || filters.district || filters.type || filters.origin || filters.voice || filters.urgent)
   const [more, setMore] = useState(secondaryActive)
-  const SECONDARY: Field[] = ['source', 'district', 'type', 'origin', 'urgent']
+  const SECONDARY: Field[] = ['source', 'district', 'type', 'origin', 'voice', 'urgent']
   const hasSecondary = fields.some((f) => SECONDARY.includes(f))
   useEffect(() => setQ(filters.q ?? ''), [filters.q])
   const has = (f: Field) => fields.includes(f) && (!SECONDARY.includes(f) || more || secondaryActive || fields.length <= 6)
@@ -85,6 +85,11 @@ export default function FilterBar({ fields = ALL }: { fields?: Field[] }) {
         <Select allowClear placeholder="Данные" aria-label="Происхождение данных" value={filters.origin} onChange={set('origin')}
           style={{ minWidth: 150 }}
           options={[{ value: 'real', label: 'Только реальные' }, { value: 'synthetic', label: 'Только демо-набор' }]} />
+      )}
+      {has('voice') && (
+        <Select allowClear placeholder="Кто пишет" aria-label="Кто пишет" value={filters.voice} onChange={set('voice')}
+          style={{ minWidth: 170 }}
+          options={[{ value: 'resident', label: 'Жители' }, { value: 'media', label: 'СМИ и официальные каналы' }]} />
       )}
       {has('urgent') && (
         <Tooltip title="Только обращения с маркерами срочности: авария, угроза жизни, нет воды/тепла, дети, пожилые">

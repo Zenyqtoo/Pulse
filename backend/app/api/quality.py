@@ -20,6 +20,23 @@ from app.security import get_current_user, require_role
 router = APIRouter(prefix="/api/quality", tags=["quality"])
 
 
+def _scoped(stmt, user: User):
+    """Department staff label and export only their own sphere's messages (spec 3.8.6)."""
+    if user.department_code:
+        stmt = stmt.where(Item.id.in_(select(Enrichment.item_id)
+                                      .where(Enrichment.primary_department == user.department_code)))
+    return stmt
+
+
+def _own_item(db: Session, item_id: int, user: User) -> Item:
+    it = db.get(Item, item_id)
+    if it is None:
+        raise HTTPException(404, "Обращение не найдено")
+    if user.department_code and (not it.enrichment or it.enrichment.primary_department != user.department_code):
+        raise HTTPException(403, "Обращение относится к другому подразделению")
+    return it
+
+
 def _pct(xs: list[int], q: float):
     if not xs:
         return None
@@ -80,6 +97,7 @@ def labeling_queue(origin: Literal["real", "synthetic", "all"] = "real", limit: 
         stmt = stmt.where(Source.is_synthetic.is_(False))
     elif origin == "synthetic":
         stmt = stmt.where(Source.is_synthetic.is_(True))
+    stmt = _scoped(stmt, user)
     rows = db.scalars(stmt.order_by(func.random()).limit(limit)).all()
     left = db.scalar(select(func.count()).select_from(stmt.subquery()))
     return {"remaining": left, "items": [{"id": i.id, "text": i.text_masked, "lang": i.lang,
@@ -93,8 +111,7 @@ class GoldIn(BaseModel):
 
 @router.put("/gold/{item_id}")
 def set_gold(item_id: int, body: GoldIn, db: Session = Depends(get_db), user: User = Depends(require_role("operator"))):
-    if not db.get(Item, item_id):
-        raise HTTPException(404, "Обращение не найдено")
+    _own_item(db, item_id, user)
     if not db.scalar(select(Department.id).where(Department.code == body.department)):
         raise HTTPException(400, "Неизвестное подразделение")
     g = db.get(GoldLabel, item_id) or GoldLabel(item_id=item_id, split=split_for(item_id))
@@ -107,6 +124,7 @@ def set_gold(item_id: int, body: GoldIn, db: Session = Depends(get_db), user: Us
 
 @router.delete("/gold/{item_id}")
 def delete_gold(item_id: int, db: Session = Depends(get_db), user: User = Depends(require_role("operator"))):
+    _own_item(db, item_id, user)
     g = db.get(GoldLabel, item_id)
     if g:
         db.delete(g)
@@ -116,8 +134,8 @@ def delete_gold(item_id: int, db: Session = Depends(get_db), user: User = Depend
 
 @router.get("/gold/export")
 def export_gold(db: Session = Depends(get_db), user: User = Depends(require_role("operator"))):
-    rows = db.execute(select(GoldLabel, Item, Source).join(Item, Item.id == GoldLabel.item_id)
-                      .join(Source, Source.id == Item.source_id)).all()
+    rows = db.execute(_scoped(select(GoldLabel, Item, Source).join(Item, Item.id == GoldLabel.item_id)
+                              .join(Source, Source.id == Item.source_id), user)).all()
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["item_id", "split", "origin", "department", "sentiment", "text_masked"])
@@ -141,7 +159,9 @@ async def import_gold(file: UploadFile = File(...), db: Session = Depends(get_db
             continue
         if row.get("department") not in codes or row.get("sentiment") not in ("positive", "neutral", "negative"):
             continue
-        if not db.get(Item, iid):
+        it = db.get(Item, iid)
+        if not it or (user.department_code and (not it.enrichment
+                                                or it.enrichment.primary_department != user.department_code)):
             continue
         g = db.get(GoldLabel, iid) or GoldLabel(item_id=iid, split=split_for(iid))
         g.department, g.sentiment, g.labeled_by = row["department"], row["sentiment"], user.id

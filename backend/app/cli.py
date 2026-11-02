@@ -2,6 +2,8 @@
 
   seed               departments, users, default sources
   load-demo          add the synthetic demo set (clearly labelled) and analyse it
+  load-snapshot      import the bundled masked public dataset into an empty installation
+  prepare-defense    prepare editorial demonstration cases from existing public records
   collect            run all enabled collectors now
   process            analyse pending items, then re-cluster
   recluster          rebuild problems and priorities
@@ -9,6 +11,7 @@
   label-demo         import gold labels shipped with the synthetic demo set (for pipeline testing only)
   telethon-login     one-time Telegram login for the comments collector
   geo-reclassify     re-run Pavlodar geo classification (after editing the gazetteer or source scopes)
+  remask             apply the current masking rules to already stored masked texts (only adds masks)
 """
 import argparse
 import json
@@ -38,6 +41,15 @@ def main(argv=None):
         if a.command == "seed":
             seed(db)
             print("ok")
+        elif a.command == "load-snapshot":
+            from app.snapshot import load_snapshot
+
+            seed(db)
+            print(json.dumps(load_snapshot(db), ensure_ascii=False))
+        elif a.command == "prepare-defense":
+            from app.defense import prepare_cases
+
+            print(json.dumps(prepare_cases(db), ensure_ascii=False))
         elif a.command == "load-demo":
             seed(db)
             src = db.scalar(select(Source).where(Source.type == "demo"))
@@ -65,6 +77,17 @@ def main(argv=None):
                 n += 1
             db.commit()
             print(f"reclassified {n} items; run `process` to analyse newly local items")
+        elif a.command == "remask":
+            from app.ai.masking import mask_pii
+
+            n = 0
+            for it in db.scalars(select(Item)).all():
+                masked, pii = mask_pii(it.text_masked, strict_address=it.is_direct)
+                if masked != it.text_masked:
+                    it.text_masked, it.pii_found = masked, sorted(set(it.pii_found or []) | set(pii))
+                    n += 1
+            db.commit()
+            print(f"remasked {n} items")
         elif a.command == "recluster":
             print(clustering.recluster(db))
         elif a.command == "label-demo":

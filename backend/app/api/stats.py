@@ -3,11 +3,11 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.filters import Filters, apply_item_filters, filters_dep
+from app.filters import Filters, apply_item_filters, filters_dep, resident_condition
 from app.models import Cluster, ClusterItem, Correction, Enrichment, Item, Source, User
 from app.collectors.registry import PLATFORM_NAMES
 from app.reference import DEPT_NAMES
@@ -139,11 +139,29 @@ def overview(f: Filters = Depends(filters_dep), db: Session = Depends(get_db), u
 
 
 def _top_clusters(db: Session, user: User, f: Filters, limit: int) -> list[dict]:
-    stmt = select(Cluster).where(Cluster.active.is_(True), Cluster.status.not_in(["resolved", "closed"]))
+    stmt = select(Cluster).where(Cluster.active.is_(True))
+    # The same global filter as the charts: a problem shows up only if it matches the selection
+    stmt = stmt.where(Cluster.status.in_(f.statuses) if f.statuses else Cluster.status.not_in(["resolved", "closed"]))
     if user.department_code:
         stmt = stmt.where(Cluster.department == user.department_code)
     if f.departments:
         stmt = stmt.where(Cluster.department.in_(f.departments))
+    if f.priorities:
+        stmt = stmt.where(Cluster.priority.in_(f.priorities))
+    if f.districts:
+        stmt = stmt.where(Cluster.district.in_(f.districts))
+    if f.q:
+        stmt = stmt.where(or_(Cluster.title.ilike(f"%{f.q}%"), Cluster.summary.ilike(f"%{f.q}%")))
+    start, end = f.period()
+    if start:
+        stmt = stmt.where(Cluster.last_seen >= start)
+    if end:
+        stmt = stmt.where(Cluster.first_seen <= end)
+    if f.urgent:
+        stmt = stmt.where(Cluster.has_urgent.is_(True))
+    if f.origin:
+        from app.api.clusters import origin_condition
+        stmt = stmt.where(origin_condition(f.origin))
     if f.platforms:   # problems discussed on at least one of the selected platforms
         stmt = stmt.where(Cluster.id.in_(select(ClusterItem.cluster_id).join(Item, Item.id == ClusterItem.item_id)
                                          .where(Item.platform.in_(f.platforms))))
@@ -193,7 +211,9 @@ def operations(db: Session = Depends(get_db), user: User = Depends(get_current_u
     if user.department_code:
         base = base.where(Enrichment.primary_department == user.department_code)
     review = db.scalar(base.where(Enrichment.needs_review.is_(True)))
-    overdue = db.scalar(base.where(Item.status == "new", Item.published_at < now - timedelta(hours=SLA_HOURS)))
+    # News and official posts need no reply, so only residents' messages can be "without reaction"
+    overdue = db.scalar(base.where(Item.status == "new", Item.published_at < now - timedelta(hours=SLA_HOURS),
+                                   resident_condition()))
     new_direct = db.scalar(base.where(Item.is_direct.is_(True), Item.status == "new"))
     pending = db.scalar(select(func.count()).select_from(Item).where(Item.process_state.in_(["pending", "error"])))
     geo_queue = db.scalar(select(func.count()).select_from(Item).where(

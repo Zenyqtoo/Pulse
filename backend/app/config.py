@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "Пульс города"
+    app_name: str = "City Alert"
     city_name: str = "Павлодар"
     database_url: str = "postgresql+psycopg://pulse:pulse@localhost:5432/pulse"
 
@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     llm_timeout_s: float = 30.0
     review_confidence_threshold: float = 0.6
     prompt_version: str = "enrich-v1"
+    # Experimental local classifier: opt-in only, no automatic startup/download.
+    local_model_enabled: bool = False
+    local_model_url: str = "http://127.0.0.1:8012"
+    local_model_timeout_s: float = 10.0
 
     # Embeddings: "auto" tries sentence-transformers, falls back to TF-IDF
     embedding_backend: str = "auto"

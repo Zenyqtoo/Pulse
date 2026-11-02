@@ -289,6 +289,24 @@ def test_telegram_web_incremental(monkeypatch):
     assert [i.external_id for i in c2.fetch(None)] == ["pvl/13"]          # only the new post
 
 
+def test_telegram_web_first_run_reads_older_pages(monkeypatch):
+    pages = {"https://t.me/s/pvl": TG_PAGE.format(a=21, b=22), "https://t.me/s/pvl?before=21": TG_PAGE.format(a=11, b=12)}
+
+    class FakeClient:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def get(self, url):
+            return SimpleNamespace(text=pages.get(url, ""), raise_for_status=lambda: None)
+
+    import app.collectors.telegram_web as tw
+    monkeypatch.setattr(tw.httpx, "Client", FakeClient)
+    monkeypatch.setattr(tw.time, "sleep", lambda s: None)
+    c = TelegramWebCollector({"channels": ["pvl"], "pages": 2})
+    c.state = {}
+    assert sorted(i.external_id for i in c.fetch(None)) == ["pvl/11", "pvl/12", "pvl/21", "pvl/22"]
+
+
 def test_telethon_comment_threading():
     top = SimpleNamespace(id=50, message="Ответ на вопрос", date=NOW, sender_id=1, reactions=None, replies=None,
                           reply_to=SimpleNamespace(reply_to_msg_id=40, reply_to_top_id=30))
@@ -416,3 +434,47 @@ def test_unconnected_platform_run_is_logged(db):
     db.commit()
     run = pipeline.run_source(db, src, "manual")
     assert run.status == "error" and "не подключён" in run.error and src.last_status == "error"
+
+
+def test_repeat_run_on_sqlite_passes_aware_since(db, monkeypatch):
+    """A second run uses last_run_at from the DB; SQLite gives it back without a timezone."""
+    import app.collectors.news as news
+    seen = {}
+
+    def fake_fetch(self, since):
+        seen["since"] = since
+        return []
+
+    monkeypatch.setattr(news.NewsCollector, "fetch", fake_fetch)
+    src = _source(db, "news", "news")
+    src.config = {"feeds": ["https://example.org/rss"]}
+    src.last_run_at, src.last_status = datetime(2026, 11, 1, 6, 0), "ok"   # naive, as SQLite returns it
+    db.commit()
+    assert pipeline.run_source(db, src, "manual").status == "ok"
+    assert seen["since"].tzinfo is not None
+
+
+# ---------------------------------------------------------------- pavon.kz reader comments
+PAVON_PAGE = """<html><head><meta property="og:title" content="Зачем красят дымовые трубы ТЭЦ">
+<meta itemprop="datePublished" content="2026-12-30T12:00:00+05:00"></head><body>
+<script type="application/json" id="comment-wrapper-data">{"comments": [
+ {"id": 11, "body": "<blockquote><p>цитата чужих слов</p></blockquote><p>Во дворе опять нет света</p>",
+  "time": "31 декабря 23:10 Четверг", "creator": "77", "replyto": null, "like_count": 2},
+ {"id": 12, "body": "<p>И у нас тоже</p>", "time": "2 января  1:05 Суббота", "creator": "78", "replyto": 11},
+ {"id": 13, "body": "<blockquote>только цитата</blockquote>", "time": "3 января 10:00", "creator": "79"}],
+ "pagination": {"total_pages": 1}}</script></body></html>"""
+
+
+def test_pavon_comments_dates_quotes_and_threads():
+    from app.collectors.pavon import parse_article
+    from app.serializers import voice
+
+    items, pages = parse_article(PAVON_PAGE, "https://pavon.kz/post/view/1")
+    assert pages == 1 and [i.external_id for i in items] == ["pavon:11", "pavon:12"]   # quote-only comment dropped
+    first, reply = items
+    assert first.text == "Во дворе опять нет света"                     # quoted text is not credited to the reader
+    assert first.published_at == datetime(2026, 12, 31, 18, 10, tzinfo=timezone.utc)
+    assert reply.published_at == datetime(2027, 1, 1, 20, 5, tzinfo=timezone.utc)  # year rolls over
+    assert reply.kind == "reply" and first.kind == "comment" and first.reactions == 2
+    assert first.url == first.parent_url == "https://pavon.kz/post/view/1" and "ТЭЦ" in first.context_text
+    assert voice(SimpleNamespace(is_direct=False, kind=first.kind, source=SimpleNamespace(type="pavon_comments"))) == "resident"

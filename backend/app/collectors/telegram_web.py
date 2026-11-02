@@ -3,6 +3,7 @@
 No login or API key. The preview shows posts with text, date and views; comments are not
 included there (see the Telethon collector for those). Only channels with a public preview work.
 """
+from html import unescape
 import re
 import time
 from datetime import datetime, timezone
@@ -40,7 +41,8 @@ def parse_page(html: str, channel: str) -> list[RawItem]:
             continue
         for br in text_el.find_all("br"):
             br.replace_with("\n")
-        text = text_el.get_text("", strip=False).strip()
+        # some channels publish already-escaped text ("&mdash;"), which BeautifulSoup leaves as is
+        text = unescape(text_el.get_text("", strip=False)).strip()
         if not text:
             continue
         t = msg.select_one(".tgme_widget_message_date time[datetime]") or msg.select_one("time[datetime]")
@@ -91,6 +93,7 @@ class TelegramWebCollector(Collector):
         with httpx.Client(timeout=20, headers={"User-Agent": UA}, follow_redirects=True) as client:
             for ch in channels:
                 before = None
+                seen = int(last_ids.get(ch, 0))   # fixed for the whole run, so older pages are not mistaken for seen ones
                 for _ in range(pages):
                     url = f"https://t.me/s/{ch}" + (f"?before={before}" if before else "")
                     try:
@@ -104,7 +107,6 @@ class TelegramWebCollector(Collector):
                         if before is None:
                             errors.append(f"{ch}: нет веб-просмотра или постов")
                         break
-                    seen = int(last_ids.get(ch, 0))
                     fresh = [i for i in items if _post_id(i) > seen]
                     result.extend(fresh)
                     newest = max(_post_id(i) for i in items)

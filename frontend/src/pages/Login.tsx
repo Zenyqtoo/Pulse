@@ -15,9 +15,9 @@ export default function Login() {
     <div className="login-wrap">
       <div className="login-side">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <svg width="40" height="40" viewBox="0 0 32 32" aria-hidden><rect width="32" height="32" rx="7" fill="#1E4468" />
-            <path d="M5 17h5l3-7 4 13 3-9 2 3h5" fill="none" stroke="#5FB4EA" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <span style={{ fontFamily: 'Unbounded', fontWeight: 600, fontSize: 18 }}>Пульс города</span>
+          <svg width="40" height="40" viewBox="0 0 32 32" aria-hidden><rect width="32" height="32" rx="10" fill="#D8F475" />
+            <circle cx="16" cy="16" r="8" fill="none" stroke="#183D36" strokeWidth="2" /><path d="M16 6v5M16 21v5M6 16h5M21 16h5" stroke="#183D36" strokeWidth="2" /><circle cx="16" cy="16" r="2.5" fill="#183D36" /></svg>
+          <span style={{ fontFamily: 'Unbounded', fontWeight: 600, fontSize: 18 }}>City Alert</span>
         </div>
         <div>
           <h1>Что беспокоит жителей сегодня — и кто должен это решить</h1>

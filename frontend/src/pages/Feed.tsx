@@ -102,7 +102,9 @@ export default function Feed({ mode }: { mode: Mode }) {
                 <div className="muted" style={{ fontSize: 12.5, marginTop: 3, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                   <PlatformTag value={r.platform} kind={r.kind} />
                   {r.geo_status !== 'local' && <GeoTag value={r.geo_status} reviewed={r.geo_reviewed} />}
-                  {r.source_name}{r.is_synthetic && ' (демо)'}{r.enrichment?.district && ` · ${r.enrichment.district}`}
+                  {r.voice === 'media' && <Tooltip title="Материал редакции или официального канала, а не сообщение жителя"><Tag className="voice-tag">Публикация СМИ / канала</Tag></Tooltip>}
+                  {r.is_synthetic && <Tag className="origin-tag">Учебное</Tag>}
+                  {r.source_name}{r.enrichment?.district && ` · ${r.enrichment.district}`}
                   {r.is_spam && <Tag color="default" style={{ marginLeft: 6 }}>спам</Tag>}
                   {r.duplicate_of_id && <Tag style={{ marginLeft: 6 }}>дубликат №{r.duplicate_of_id}</Tag>}
                   {r.enrichment && <> <UrgencyTags markers={r.enrichment.urgency_markers} /></>}

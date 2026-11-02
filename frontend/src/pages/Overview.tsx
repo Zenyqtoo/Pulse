@@ -76,7 +76,7 @@ export default function Overview() {
   const synthetic = data?.by_source.some((s) => s.is_synthetic)
   return (
     <>
-      <PageHead title="Общая картина" sub={<>Обращения жителей <b>города Павлодар</b> из всех платформ: тональность и главные проблемы за период</>}
+      <PageHead title="Аналитика города" sub={<>Обращения жителей <b>города Павлодар</b> из всех платформ: тональность и главные проблемы за период</>}
         extra={<>
           <Button icon={<FilePdfOutlined />} onClick={report}>Сводка PDF</Button>
           <ExportMenu base="/api/export/items" params={filters} label="Обращения" />

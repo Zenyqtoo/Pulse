@@ -1,11 +1,11 @@
 import type { ThemeConfig } from 'antd'
 
 export const C = {
-  ink: '#13304D',
-  inkSoft: '#1E4468',
-  sky: '#1F7FC1',
+  ink: '#183D36',
+  inkSoft: '#285348',
+  sky: '#246A57',
   skyTint: '#E6F1FA',
-  paper: '#F4F6F8',
+  paper: '#F5F4EF',
   line: '#DDE3EA',
   text: '#1B2733',
   muted: '#5C6B7A',
@@ -18,7 +18,7 @@ export const C = {
 export const SENT_COLOR: Record<string, string> = { positive: C.green, neutral: C.slate, negative: C.brick }
 export const PRIO_COLOR: Record<string, string> = { high: C.brick, medium: C.gold, low: C.slate }
 export const STATUS_COLOR: Record<string, string> = {
-  new: '#1F7FC1', transferred: '#6B5FB5', in_progress: '#D9A21B', resolved: '#2F8A5B', closed: '#8C98A6',
+  new: '#246A57', transferred: '#6B5FB5', in_progress: '#D9A21B', resolved: '#2F8A5B', closed: '#8C98A6',
 }
 
 export const SENT_LABEL: Record<string, string> = { positive: 'Положительная', neutral: 'Нейтральная', negative: 'Отрицательная' }

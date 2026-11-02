@@ -1,0 +1,59 @@
+{
+  "version": "cityalert-e5-curriculum-v2",
+  "created_at": "2026-11-01T22:16:18.485248+00:00",
+  "encoder": "intfloat/multilingual-e5-small",
+  "encoder_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+  "encoder_weights_updated": false,
+  "adaptation": "frozen encoder + char n-grams + weighted trained logistic heads (C=15)",
+  "training_origins": {
+    "real_rules_v1": 260,
+    "ai_authored_synthetic": 1320
+  },
+  "training_sha256": "f12f9e65297983b419e62aebf0502ac6d282cdf7d5e1d11c315b392b84e7d994",
+  "weak_real_weight": 0.12,
+  "synthetic_weight": 1.0,
+  "label_counts": {
+    "department": {
+      "safety": 154,
+      "other": 230,
+      "education": 127,
+      "housing": 160,
+      "health": 125,
+      "ecology": 136,
+      "improvement": 129,
+      "culture": 129,
+      "roads": 139,
+      "social": 126,
+      "business": 125
+    },
+    "sentiment": {
+      "neutral": 748,
+      "negative": 496,
+      "positive": 336
+    },
+    "message_type": {
+      "question": 178,
+      "info": 404,
+      "proposal": 170,
+      "complaint": 493,
+      "gratitude": 335
+    },
+    "geo": {
+      "possible": 317,
+      "local": 604,
+      "not_local": 659
+    }
+  },
+  "real_held_out": {
+    "train": 260,
+    "dev": 64,
+    "test": 67
+  },
+  "independent_human_accuracy": null,
+  "limitations": [
+    "AI-authored templates are not real resident comments or independent gold labels.",
+    "Old 28 diagnostic examples informed development; report them as regressions only.",
+    "Uncalibrated scores; human real-data validation still required.",
+    "Do not automatically enable or replace the deployed analyser from this script."
+  ]
+}

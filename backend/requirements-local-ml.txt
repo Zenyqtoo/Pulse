@@ -1,0 +1,7 @@
+# Optional isolated environment for local training and the model lab.
+# The main backend does not need these heavy dependencies in rules mode.
+sentence-transformers==6.2.0
+transformers==5.22.1
+torch==2.15.0
+scikit-learn==1.9.1
+numpy==2.5.4

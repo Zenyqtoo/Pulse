@@ -1,145 +1,191 @@
-# Пульс города — citizen feedback monitoring for Pavlodar
+# City Alert — от городского сигнала к основе для решения
 
-Hackathon track «Городская обратная связь». The system monitors **Pavlodar city** (not the region) across Telegram,
-Instagram, Threads, news sites and Direct messages to the akimat. It keeps only messages about the city
-(geographic relevance filter), masks personal data, classifies each message into one of 11
-departments with confidence, detects sentiment, type, urgency and entities, groups similar complaints into
-problems, computes a transparent priority, and shows it all on role-based dashboards with drill-down and export.
+**ИИ-ассистент для акимата Павлодара · хакатон AIFEST 2026 · команда El Gato**
 
-- `backend/` — FastAPI, SQLAlchemy 2, PostgreSQL, Alembic, APScheduler, Claude API, scikit-learn
-- `frontend/` — React 19 + Vite + TypeScript, Ant Design 6, ECharts
-- `docs/ACCEPTANCE.md` — acceptance criteria (spec section 8) with how each is implemented and verified
-- `docs/DEMO.md` — demo preparation and a 4-minute script
-- `docs/SOURCES.md` — verified Pavlodar sources and what each platform's official API allows
+City Alert собирает публичные городские сообщения, группирует их в проблемы и помогает сотруднику понять: что произошло, где, насколько массово, какие есть доказательства и кому передать вопрос.
 
-## Quick start with Docker (recommended)
+**Главная особенность — Decision Card:**
 
-```bash
-cp .env.example .env          # set SECRET_KEY, AUTHOR_HASH_SALT, passwords, ANTHROPIC_API_KEY, TELEGRAM_BOT_TOKEN
-docker compose up -d --build  # builds UI + API, runs migrations, seeds departments, users and default sources
-open http://localhost:8000    # log in as operator / admin / viewer (passwords from .env)
-```
+`Публичные данные → Проблема → Доказательства → Аналитика → Поддержка решения`
 
-Optional fallback demo data (synthetic, clearly labelled in the UI):
+Сотрудник открывает проблему и получает аналитическую карточку: масштаб, динамику, источники, цитаты жителей, связанные подразделения и недостающие данные. Итоговое решение принимает человек. Число аккаунтов не выдаётся за число установленных физических лиц; публикации СМИ отделены от комментариев жителей.
 
-```bash
-docker compose exec app python -m app.cli load-demo
-```
+## Жюри: с чего начать
 
-## Local development without Docker
+1. Запустите приложение по инструкции ниже и загрузите включённый обезличенный снимок данных.
+2. Откройте **«Ещё → Сценарии для защиты»** (`/defense`): там три проверяемые подборки с датами и первоисточниками. Затем откройте главную и обычную **карточку решения**.
+3. Проверьте фильтры, переход к исходным сообщениям и смену статуса проблемы.
+4. Подключите открытые источники в **«Источники и сбор»**, выполните сбор и выберите **«Только реальные»**.
+5. Сопоставьте результат с таблицей ТЗ и ограничениями ниже.
 
-Requirements: Python 3.12+, Node 20+, PostgreSQL 16.
+[Основной репозиторий](https://github.com/Zenyqtoo/Pulse) · [Репозиторий сдачи](https://github.com/AIFESTHackathon2026/team-el-gato)
+
+[Чек-лист сдачи и сценарий защиты](docs/SUBMISSION_CHECKLIST.md) · [Устройство Decision Card](docs/DECISION_CARD.md) · [Источники и условия подключения](docs/SOURCES.md)
+
+## Быстрый запуск
+
+Нужны Git и Docker Compose. Из корня репозитория:
 
 ```bash
-createuser -P pulse && createdb -O pulse pulse            # password: pulse (or change DATABASE_URL)
-cp .env.example backend/.env                               # edit values
-cd backend
-python -m venv .venv && . .venv/bin/activate
-pip install -r requirements-dev.txt
-alembic upgrade head
-python -m app.cli load-demo                                # optional synthetic demo set
-uvicorn app.main:app --reload --port 8000
-
-cd ../frontend
-npm install
-npm run dev                                                # http://localhost:5173 (proxies /api to :8000)
-# or: npm run build  → output goes to backend/static and is served by FastAPI on :8000
+git clone https://github.com/Zenyqtoo/Pulse.git
+cd Pulse
+cp .env.example .env
+docker compose up -d --build
+docker compose exec app python -m app.cli load-snapshot
 ```
 
-## Connecting real sources
+В Windows PowerShell вместо `cp` можно использовать `Copy-Item .env.example .env`.
 
-All configuration is in the UI under **Источники и сбор** (admin role) and in `.env`.
+Перед запуском задайте в `.env` собственные случайные значения `SECRET_KEY` и `AUTHOR_HASH_SALT`. Для проверки без внешних API оставьте ключи сервисов пустыми и установите `SCHEDULER_ENABLED=false`; ручной сбор остаётся доступен. Без `ANTHROPIC_API_KEY` используется явно обозначенный словарный режим **rules-v1**.
 
-| Source | What you provide | Notes |
+- Интерфейс: **http://localhost:8000**
+- Документация API: **http://localhost:8000/docs**
+- Проверка доступности: **http://localhost:8000/api/health**
+
+При первом запуске создаются подразделения, учётные записи и заготовки источников. Команда `load-snapshot` импортирует готовый снимок: **396 реальных записей и 104 учебных сообщения**, результаты анализа и 46 групп, включая сохранённые неактивные группы и три редакторские подборки. Исторические даты сохранены: для проверки новых материалов выберите период май–ноябрь 2026 года; для архива — 2024–2025 годы. Учебные сообщения помечены как синтетические. Снимок импортируется только в базу без сообщений; существующие данные не перезаписываются. Для отдельной демонстрации учебного Direct можно дополнительно выполнить `docker compose exec app python -m app.cli load-demo`.
+
+| Роль | Логин | Пароль из примера `.env` | Для проверки |
+| --- | --- | --- | --- |
+| Администратор | `admin` | `admin123` | Источники, пользователи, аудит |
+| Оператор | `operator` | `operator123` | Обработка, статусы, корректировки |
+| Наблюдатель | `viewer` | `viewer123` | Аналитика и публичные данные; Direct скрыт |
+
+Пароли задаются переменными `SEED_*_PASSWORD` при создании пользователей. Изменение `.env` после создания аккаунта само по себе пароль не меняет. Примерные пароли предназначены для локальной проверки.
+
+**Готовые данные включены:** [обезличенный снимок JSON](backend/app/demo/public_snapshot.json) содержит публичные сообщения и комментарии со ссылками, метки происхождения, результаты анализа и группы проблем. В нём нет личных обращений, пользователей, хешей паролей, токенов, конфигураций подключений и журналов доступа. Оригинальные тексты заменены маскированными, хеши авторов повторно псевдонимизированы. Исходная локальная база команды не опубликована. Коллекторы импортированного снимка выключены; для нового сбора добавьте источники через интерфейс.
+
+Полный запуск Docker/PostgreSQL в среде команды не проверялся; фактическое демо, импорт снимка и backend-тесты проверяются на SQLite.
+
+## Соответствие ТЗ: что и как проверить
+
+Статус на 01.11.2026. «Реализовано» описывает доступный механизм; отдельные внешние подключения и показатели точности требуют дополнительной проверки.
+
+| Критерий ТЗ | Реализация | Как проверить | Статус |
+| --- | --- | --- | --- |
+| Не менее 3 источников в единой ленте | Telegram-публикации, RSS, публичные комментарии; CSV/XLSX-импорт | Администратор → «Источники и сбор» → добавить рекомендуемые источники → собрать → лента «Только реальные» | В локальном демо собраны данные из 6 источников; снимок включён; доступен также повторный сбор |
+| Подразделение, тональность, уверенность | Схема результата ИИ, обоснование, словарный fallback | Открыть сообщение; проверить подразделение, тональность, уверенность и режим анализа | Реализовано; локальное демо работает в rules-v1 |
+| Фильтрация и группировка | Период, подразделение, источник, тональность, приоритет, статус, район, происхождение данных | Изменить фильтры в ленте и аналитике; открыть сообщение из выборки | Реализовано |
+| Объединение похожих сообщений и приоритет | Кластеры проблем; объяснимый состав приоритета; статусы обработки | «Проблемы» → карточка → сообщения и компоненты приоритета; изменить статус | Реализовано; реальные и учебные кластеры разделены |
+| Дашборды 1–3, детализация и экспорт | Общая аналитика, подразделения, проблемы и приоритеты; CSV/XLSX/PDF | Открыть аналитику → перейти к сообщениям → выгрузить выбранный набор | Реализовано; PDF проверен на Windows |
+| Точность: тональность ≥80%, подразделение ≥75% | Интерфейс независимой разметки, test/dev, оценка, матрица ошибок | «Качество ИИ» → разметить реальные сообщения → выполнить оценку | **Пороги не подтверждены:** независимый размеченный тестовый набор не подготовлен |
+| Минимизация персональных данных, рекомендательный ИИ | Маскирование, хеши авторов, разграничение доступа, аудит, ручные исправления | Открыть карточку под разными ролями; проверить маски и журнал действий | Реализовано с ограничениями маскирования; полноценный аудит безопасности не проводился |
+| Direct официального аккаунта либо демопоток | Telegram Bot API; учебные личные обращения; ограничение по ролям | Загрузить учебный набор; сравнить операторскую и наблюдательскую роли | Демопоток доступен; реальный официальный аккаунт не подключён |
+| Демонстрация на реальных данных | Метки происхождения, ссылки, даты, журнал сбора | «Только реальные» → первоисточник; сверить с журналом сбора | Проверено в локальной базе команды; обезличенный снимок включён в репозиторий |
+| RU/KK, сущности, дубли и спам | Определение языка, извлечение сущностей, словари и LLM-путь, дедупликация | Открыть RU/KK-примеры, поля карточки и журнал обработки | Механизмы реализованы; качество на независимой RU/KK-выборке не измерено |
+
+### Что выделяет проект
+
+**Decision Card** связывает аналитику с рабочим действием сотрудника:
+
+- что произошло, объект и район;
+- сколько сообщений, аккаунтов и источников подтверждают проблему;
+- как меняется поток; предупреждение о маленькой базе для расчёта роста;
+- что пишут и просят жители, с переходом к доказательствам;
+- что пока неизвестно и какие данные нужно уточнить;
+- связанное подразделение и статус рассмотрения.
+
+AI помогает подготовить информационную основу. Выводы о бюджете, ресурсах и окончательных мерах остаются за сотрудником акимата.
+
+## Реальные источники и состояние интеграций
+
+| Источник | Что получаем | Состояние |
 | --- | --- | --- |
-| Telegram public channels (t.me/s) | Channel usernames | No login. Posts, dates, views. |
-| Telegram comments and public chats (Telethon) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` from my.telegram.org, then once: `python -m app.cli telethon-login` (Docker: `docker compose exec app python -m app.cli telethon-login`) | Comments under posts — where most complaints are. Use a dedicated account. |
-| News portal | RSS URLs; optional CSS selectors for reader comments | Check the site's robots.txt and terms. |
-| Direct (Telegram bot) | `TELEGRAM_BOT_TOKEN` from @BotFather | Long polling every 20 s, no public URL needed. Auto-acknowledges receipt; operator replies from the item card. |
-| CSV / XLSX upload | A file with a text column (date, url, author optional) | For exports from 2GIS, portals, or data from the organisers. |
-| Instagram | `INSTAGRAM_APP_ID/SECRET` + **Подключить Instagram** (or `INSTAGRAM_ACCESS_TOKEN`) | Official API only: comments/replies on the connected account's posts, posts of other business accounts, hashtags (App Review), Direct. See below. |
-| Threads | `THREADS_APP_ID/SECRET` + **Подключить Threads** (or `THREADS_ACCESS_TOKEN`) | Keyword search, replies, own posts, public profiles; public search needs Meta approval. See below. |
+| Telegram: `@pavlodaronline`, `@pavlodarenergo`, `@pavlodar` | Открытые публикации через `t.me/s` | Реальный сбор выполнен |
+| pavlodarnews.kz, inform.kz | Новости через RSS | Реальный сбор выполнен; часть inform.kz устарела |
+| pavon.kz | Публичные комментарии под статьями, даты, контекст и ссылка на статью | Новый сборщик `pavon_comments`; реальный сбор выполнен |
+| Telegram: комментарии и чаты через Telethon | Комментарии и ответы | Код есть; вход владельца не завершён |
+| Telegram-бот Direct | Личные обращения | Нужен токен владельца; в демо используется учебный поток |
+| Instagram, Threads | Сборщики и OAuth через официальные API | Проверены на имитациях API; живое подключение не выполнено, нужны права владельца и разрешения Meta |
+| CSV/XLSX | Выгрузки обращений и отзывов | Ручной импорт |
 
-**Recommended Pavlodar sources** (verified, see `docs/SOURCES.md`) are listed on the Sources page with one-click add.
-Each source has a **geographic scope** (city / region / national) that the geo filter uses as context.
+В текущем обезличенном снимке: **371 публикация каналов/СМИ и 25 комментариев pavon.kz** (с учётом пяти HTML-статей, добавленных 02.11.2026). Из комментариев 16 отнесены к Павлодару, 3 требуют проверки места, 6 исключены как нелокальные. Это снимок локального сбора, а не гарантия количества при повторном запуске. Комментарий на сайте не подтверждает личность или место проживания автора.
 
-### Connecting Instagram
+Для повторения: войдите как администратор → «Источники и сбор» → рекомендуемые источники → добавьте нужные → включите и выполните «Собрать сейчас». У pavon.kz выберите тип «pavon.kz: комментарии читателей». Проверьте журнал, затем ленту с фильтром «Только реальные» и периодом, включающим даты публикаций. Нужный период для первых комментариев: май–октябрь 2026 года. Статус «Возможно Павлодар» обрабатывается в очереди геопривязки.
 
-1. developers.facebook.com → Create app (type Business) → add product **Instagram** → "API setup with Instagram business login".
-2. Add the redirect URI `{PUBLIC_BASE_URL}/api/connect/instagram/callback` (HTTPS in production; set `PUBLIC_BASE_URL`).
-3. Copy the Instagram app ID and secret into `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`, restart.
-4. As admin: **Источники и сбор → Instagram → Подключить Instagram**, log in with the **professional** account to monitor
-   (ideally the akimat's @pavlodar_akimdigi; the account owner must log in). Tokens are stored encrypted and refreshed automatically.
-5. Enable the Instagram source. Without App Review, Meta returns data only for accounts with a role on your app;
-   hashtag search needs the **Instagram Public Content Access** feature and a Facebook Login token (`INSTAGRAM_API_HOST=graph.facebook.com`, `INSTAGRAM_USER_ID`).
+## Сценарий проверки за 3–5 минут
 
-### Connecting Threads
+1. **Главная:** оценить список проблем и открыть Decision Card.
+2. **Доказательства:** перейти к исходным сообщениям, проверить число источников, разделение СМИ и жителей, отсутствие необоснованного процента роста.
+3. **Рабочий процесс:** под оператором изменить статус с комментарием; проверить результат в списке проблем.
+4. **Аналитика:** открыть общую картину и подразделения, применить фильтры, перейти к сообщениям, скачать экспорт.
+5. **Права:** войти как `viewer`, убедиться, что личные обращения недоступны; под оператором проверить учебный Direct.
+6. **Реальные данные:** после импорта снимка выбрать «Только реальные» → «Кто пишет: Жители»; открыть комментарий и первоисточник. Учебный набор показывать отдельно.
+7. **Качество:** показать раздел разметки и пояснить, что целевые пороги точности пока не измерены.
 
-1. developers.facebook.com → Create app → use case **Access the Threads API**; add permissions `threads_basic`,
-   `threads_read_replies`, `threads_keyword_search` (and `threads_profile_discovery` if needed).
-2. Redirect URI `{PUBLIC_BASE_URL}/api/connect/threads/callback`; copy the Threads app ID/secret to `THREADS_APP_ID/SECRET`.
-3. Add your Threads account as a tester, then **Подключить Threads** on the Sources page.
-4. Until Meta approves `threads_keyword_search` (App Review), keyword search returns only your own posts — the UI states this.
+## Архитектура и обработка
 
-## Pavlodar-only geographic filter
+`Сборщики → геофильтр → маскирование → дедупликация/анализ → кластеры → приоритет → Decision Card и дашборды`
 
-Every message gets **Павлодар / Возможно Павлодар / Не Павлодар**:
-1. Rules: city name forms in Russian/Kazakh/Latin («Павлодарда», «павлодарцы», «Pavlodar»), city landmarks and utilities,
-   streets (weak evidence), other towns of the region and other cities (Экибастуз, Аксу, Майкаин, Баянаул…), region-only wording,
-   the source's scope, and the parent post for comments. Messages clearly about another place are excluded **before** any LLM call.
-2. The same Claude call that classifies the department judges the geography in context (source description and parent post);
-   it can exclude incidental mentions such as sports results.
-3. Only «Павлодар» enters dashboards, clusters and priorities. «Возможно» goes to the **Геопривязка** queue, where an operator decides
-   (the decision is logged and never overwritten). Edit the gazetteer in `backend/app/geo/pavlodar.py`, then run `python -m app.cli geo-reclassify`.
+- **Backend:** FastAPI, SQLAlchemy 2, Alembic, APScheduler, Pydantic; PostgreSQL для Docker-конфигурации.
+- **Frontend:** React 19, TypeScript, Vite, Ant Design, ECharts.
+- **Анализ:** Claude API при наличии отдельного API-ключа; rules-v1 без ключа. Подписка на Claude Desktop сама по себе не подключает API к приложению.
+- **Группировка:** embeddings при наличии модели либо символьный TF-IDF; разделение по подразделению и происхождению.
+- **Приоритет:** негатив, объём, рост, охват, срочность и длительность; состав показан в карточке.
+- **Защита данных:** маскирование до отправки в LLM, роли, аудит доступа к оригиналам, ограничение Direct.
 
-Problems are clustered across platforms: the same complaint on Telegram, Instagram and Threads becomes one problem that lists
-all platforms and links to every original post; exact reposts on another platform are counted as attention there.
-
-Collection runs on schedule (hourly by default) and on «Собрать сейчас». Every run is in the collection log with counts and errors.
-
-## How the AI works
-
-1. **Before any external call:** regex masking of IIN, phones, e-mails, cards, apartment numbers and full names
-   (plus house numbers for Direct). The LLM only ever sees masked text; names it finds that regex missed are masked in a second pass.
-2. **One Claude call per message** (forced tool call with a JSON schema, validated with Pydantic, one corrective retry, SDK retries
-   with backoff): departments (1–3) + confidence, sentiment + score, type, spam, district/address/object/problem type,
-   urgency markers, rationale in Russian. Confidence < 0.6 → review queue.
-3. **Fallback:** without a key or if the API fails, a rules analyser runs and is labelled `rules-v1` everywhere. It is a safety net, not the target quality.
-4. **Clustering:** per department, agglomerative clustering on embeddings (local sentence-transformers if installed, else character
-   n-gram TF-IDF), plus a rule that the same normalised problem type in the same district is one problem. Titles and summaries by Claude (extractive without it).
-5. **Priority (0–100):** `25·negativity + 20·volume + 20·growth(24h) + 15·reach + 15·urgency + 5·days unresolved`; high ≥ 55, medium ≥ 35;
-   a life-threat marker forces high. Every term is stored and shown.
-6. **Operator corrections** are kept separately from the model's original answer and become few-shot examples (test-set items excluded).
-
-## Accuracy (acceptance criterion 6)
-
-Label real messages on **Качество ИИ → Разметка** (blind: the model's answer is hidden). Each label is assigned to test (75%) or dev (25%).
-Then **Качество ИИ → Оценить** with «Реальные данные / Тестовая». Metrics are computed on the model's original output, with a confusion
-matrix and a per-language breakdown. CLI: `python -m app.cli evaluate --origin real --split test`.
-Accuracy on the synthetic demo set is shown separately and marked as not representative.
-
-## Roles
-
-| Role | Can |
-| --- | --- |
-| viewer | Dashboards, public feed, problems, exports (masked text, no Direct messages) |
-| operator | + Direct messages (masked; original on request, audited), corrections, routing, statuses, replies, collection, labelling |
-| admin | + users, departments directory, sources, audit log, deletion on request |
-
-Any user can be limited to one department (spec 3.8.6).
-
-## Tests
-
-```bash
-cd backend && . .venv/bin/activate
-createdb -O pulse pulse_test
-pytest -q                                   # 69 tests: masking, parsers, priority, LLM schema/fallbacks, API, roles, exports,
-                                            # geo filter, Instagram/Threads collectors and OAuth (mocked Meta API), cross-platform clusters
-cd ../frontend && python e2e/smoke.py http://localhost:8000 shots   # browser walk-through (needs Playwright + Chromium)
+```text
+backend/app/collectors/      Сборщики, включая pavon.py
+backend/app/ai/              Анализ, маскирование, приоритет и кластеризация
+backend/app/decision.py      Подготовка аналитической карточки
+backend/app/api/             API, экспорт, роли, качество
+backend/tests/              Проверки backend
+frontend/src/pages/         Экраны приложения
+frontend/src/components/    Карточки, фильтры и компоненты
+docs/                       Источники, критерии и сценарий защиты
 ```
 
-## Limits and next steps
+## Разработка и проверки
 
-- Instagram and Threads collectors are implemented on the official APIs and tested against mocked Meta responses; they need your Meta app credentials, and several capabilities need Meta App Review (see `docs/SOURCES.md`). WhatsApp is not connected.
-- 2GIS reviews are loaded via CSV export; no documented public reviews API was found.
-- Production version: Kazakhstan hosting, encryption at rest, Celery/Redis workers for >10k messages/day, SSO.
+Без Docker: Python 3.12+, Node.js 20+, PostgreSQL 16. Скопируйте `.env.example` в `backend/.env`, настройте `DATABASE_URL`, установите зависимости из `backend/requirements-dev.txt`, выполните из `backend/`:
+
+```bash
+alembic upgrade head
+python -m app.cli load-demo
+uvicorn app.main:app --reload --port 8000
+```
+
+В отдельном терминале:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Vite открывается на http://localhost:5173 и проксирует `/api` на backend. Для единого адреса :8000 выполните `npm run build` из `frontend/` **до** запуска backend: результат помещается в `backend/static/`.
+
+**Последняя локальная проверка 02.11.2026:** 107 backend-тестов прошли на отдельной временной SQLite-базе; frontend успешно собран в той же проверке. Парсеры и внешние API в тестах используют фиксированные примеры/имитации: прохождение тестов не подтверждает живое подключение Meta и не измеряет точность на реальных сообщениях.
+
+Пример из `backend/`, Bash:
+
+```bash
+pip install -r requirements-dev.txt
+DATABASE_URL="sqlite:////tmp/cityalert-test-$(date +%s).sqlite3" EMBEDDING_BACKEND=tfidf SCHEDULER_ENABLED=false ANTHROPIC_API_KEY= PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q -p no:cacheprovider
+```
+
+**Тестовая база должна быть отдельной:** `tests/conftest.py` пересоздаёт таблицы. Не направляйте тесты на рабочую или демонстрационную базу.
+
+## Известные ограничения
+
+- Точность 80%/75% на независимо размеченных реальных данных не подтверждена.
+- Живые Instagram/Threads, Telethon и официальный Direct пока не подключены.
+- Словарный анализ может ошибаться на новостях; тональность новости не равна общественному мнению.
+- Публичных комментариев пока мало; аккаунты не равны уникальным людям. Время комментария pavon.kz содержит год, выведенный из даты статьи.
+- Геопривязка иногда требует ручной проверки; маскирование может пропускать редкие или склонённые имена.
+- Исходная локальная база не поставляется; обезличенный снимок включён. В демо сбор по расписанию выключен. Доступность источников зависит от внешних сайтов.
+- Полный Docker/PostgreSQL-запуск и производственная нагрузка не проверены. JS-бандл около 2,7 MB.
+- Отдельные дашборды 4–7, казахская локализация интерфейса и размещение в Казахстане остаются дальнейшими этапами.
+
+Детальные технические критерии в [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) отражают раннюю проверку сборки; актуальный статус сдачи приведён в этом README и [чек-листе](docs/SUBMISSION_CHECKLIST.md).
+
+
+## Сохранённый экспериментальный модуль модели
+
+Локальная модель v4 включена в исходники и сохранена в `backend/app/local_model_assets`, но **отключена по умолчанию** (`LOCAL_MODEL_ENABLED=false`). Она не заменяет текущий анализ сайта и не запускается автоматически. Код обучения, обученные классификаторы и инструкция оставлены для дальнейшего развития. Полные веса открытого E5 скачиваются отдельно только по явной команде. [Как подключить позже и отключить обратно](docs/OPTIONAL_LOCAL_MODEL.md).
+
+
+## Сценарии для защиты и новые сайты
+
+Экран **«Ещё → Сценарии для защиты»** (`/defense`) показывает три редакторские подборки реальных записей со ссылками, датами и разделением комментариев и СМИ. Добавлены HTML-сборщики gorodpavlodar.kz и obozrenie.kz, собрано пять публикаций. Пример по отоплению архивный (2025 год), что явно указано. [Содержание подборок, ограничения и воспроизведение](docs/DEFENSE_CASES.md).
+
+Публичный сбор комментариев pavon.kz проверяет robots.txt, выдерживает паузу не менее 60 секунд и ограничен десятью статьями за запуск. Такой сбор может занимать несколько минут; точные URL и даты доступны в ленте.

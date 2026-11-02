@@ -30,6 +30,7 @@ class Filters:
     include_spam: bool = False
     platforms: list[str] | None = None
     geo: str | None = None             # local (default) | possible | not_local | all
+    voice: str | None = None           # resident | media
 
     def period(self) -> tuple[datetime | None, datetime | None]:
         if self.days and not self.date_from:
@@ -52,6 +53,7 @@ def filters_dep(
     is_direct: bool | None = None, needs_review: bool | None = None, urgent: bool | None = None,
     origin: str | None = Query(None, pattern="^(real|synthetic)$"), include_spam: bool = False,
     platform: str | None = None, geo: str | None = Query(None, pattern="^(local|possible|not_local|all)$"),
+    voice: str | None = Query(None, pattern="^(resident|media)$"),
 ) -> Filters:
     src = _split(source)
     return Filters(
@@ -60,8 +62,15 @@ def filters_dep(
         departments=_split(department), sentiments=_split(sentiment), priorities=_split(priority),
         statuses=_split(status), types=_split(type), districts=_split(district), langs=_split(lang),
         q=q.strip() if q else None, cluster_id=cluster_id, is_direct=is_direct, needs_review=needs_review,
-        urgent=urgent, origin=origin, include_spam=include_spam, platforms=_split(platform), geo=geo,
+        urgent=urgent, origin=origin, include_spam=include_spam, platforms=_split(platform), geo=geo, voice=voice,
     )
+
+
+def resident_condition():
+    """SQL twin of serializers.voice() == 'resident': messages of residents, not news or official posts."""
+    resident_sources = select(Source.id).where(Source.type.in_(["demo", "upload", "threads"]))
+    return or_(Item.is_direct.is_(True), Item.kind.in_(["comment", "reply", "message", "review"]),
+               Item.source_id.in_(resident_sources))
 
 
 def scope_departments(f: Filters, user: User) -> Filters:
@@ -113,6 +122,8 @@ def apply_item_filters(stmt: Select, f: Filters, user: User, analytics: bool = T
         conds.append(Item.source_id.in_(synthetic) if f.origin == "synthetic" else Item.source_id.not_in(synthetic))
     if f.platforms:
         conds.append(Item.platform.in_(f.platforms))
+    if f.voice:
+        conds.append(resident_condition() if f.voice == "resident" else ~resident_condition())
     # Only messages about the monitored city enter analytics unless another geo view is asked for
     if f.geo != "all":
         conds.append(Item.geo_status == (f.geo or "local"))
